@@ -2,7 +2,7 @@
 #![cfg(test)]
 
 use {
-    crate::tests::test_utils::{
+    super::super::utils::test_utils::{
         build_create_ata_instruction, create_mollusk_base_accounts_with_token_and_wallet,
         setup_mollusk_with_programs, CreateAtaInstructionType,
     },

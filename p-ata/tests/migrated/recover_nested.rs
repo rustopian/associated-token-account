@@ -2,7 +2,7 @@
 #![cfg(test)]
 
 use {
-    crate::tests::test_utils::{
+    super::super::utils::test_utils::{
         create_mollusk_base_accounts_with_token_and_wallet, setup_mollusk_with_programs,
     },
     mollusk_svm::{program::loader_keys::LOADER_V3, result::Check, Mollusk},
@@ -15,7 +15,7 @@ use {
     std::vec::Vec,
 };
 
-use crate::tests::account_builder::AccountBuilder;
+use super::super::utils::account_builder::AccountBuilder;
 
 /// Common test variables setup
 struct TestContext {

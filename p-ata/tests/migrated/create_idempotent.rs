@@ -2,8 +2,8 @@
 #![cfg(test)]
 
 use {
-    crate::tests::account_builder::AccountBuilder,
-    crate::tests::test_utils::{
+    super::super::utils::account_builder::AccountBuilder,
+    super::super::utils::test_utils::{
         build_create_ata_instruction, create_test_mint, setup_mollusk_with_programs,
         CreateAtaInstructionType,
     },

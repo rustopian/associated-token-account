@@ -2,7 +2,28 @@ use curve25519_dalek::edwards::CompressedEdwardsY;
 use solana_pubkey::Pubkey;
 use std::{vec, vec::Vec};
 
-use crate::tests::benches::common::{AccountTypeId, AtaVariant, TestBankId};
+// Define simplified types for address generation (used by integration tests)
+#[derive(Clone, Copy)]
+pub enum AtaVariant {
+    SplAta,
+    PAtaLegacy,
+    PAtaPrefunded,
+}
+
+#[derive(Clone, Copy)]
+pub enum TestBankId {
+    Benchmarks,
+    Failures,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum AccountTypeId {
+    Payer,
+    Wallet,
+    Mint,
+    OwnerMint,
+    NestedMint,
+}
 
 /// Generate a structured pubkey from 4-byte coordinate system
 /// [variant, test_bank, test_number, account_type].
@@ -428,7 +449,7 @@ pub fn find_optimal_wallet_for_nested_ata(
 macro_rules! pk_array {
     ($variant:expr, $bank:expr, $num:expr, [$($account_type:expr),* $(,)?]) => {
         [$(
-            $crate::tests::utils::address_gen::structured_pk(
+            $crate::utils::address_gen::structured_pk(
                 &$variant,
                 $bank,
                 $num,

@@ -1,9 +1,9 @@
 #![cfg_attr(feature = "std", allow(dead_code, unused_imports))]
 
-use crate::tests::address_gen::{derive_address_with_bump, is_off_curve};
+use super::super::utils::address_gen::{derive_address_with_bump, is_off_curve};
 #[cfg(any(test, feature = "std"))]
 use {
-    crate::tests::test_utils::setup_mollusk_with_programs, mollusk_svm::Mollusk,
+    super::super::utils::test_utils::setup_mollusk_with_programs, mollusk_svm::Mollusk,
     solana_pubkey::Pubkey,
 };
 

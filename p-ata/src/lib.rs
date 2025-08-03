@@ -4,15 +4,13 @@
 
 #![no_std]
 
-mod account;
-mod entrypoint;
-mod processor;
-mod recover;
-mod size;
+pub mod account;
+pub mod entrypoint;
+pub mod processor;
+pub mod recover;
+pub mod size;
 
 #[cfg(any(test, feature = "std"))]
+pub mod test_utils;
+#[cfg(any(test, feature = "std"))]
 extern crate std;
-#[cfg(any(test, feature = "std"))]
-pub mod tests;
-#[cfg(any(test, feature = "std"))]
-extern crate self as pinocchio_ata_program;

@@ -2,8 +2,8 @@ use {
     super::test_bump_utils::{
         find_wallet_with_on_curve_attack_opportunity, setup_mollusk_for_bump_tests,
     },
-    crate::tests::account_builder::AccountBuilder,
-    crate::tests::test_utils::{build_create_ata_instruction, CreateAtaInstructionType},
+    super::super::utils::account_builder::AccountBuilder,
+    super::super::utils::test_utils::{build_create_ata_instruction, CreateAtaInstructionType},
     mollusk_svm::{program::loader_keys::LOADER_V3, result::Check},
     solana_pubkey::Pubkey,
     solana_sdk::{
@@ -76,7 +76,7 @@ fn test_rejects_on_curve_address_in_idempotent_check() {
             Account {
                 lamports: 0,
                 data: Vec::new(),
-                owner: crate::tests::test_utils::NATIVE_LOADER_ID,
+                owner: super::super::utils::test_utils::NATIVE_LOADER_ID,
                 executable: true,
                 rent_epoch: 0,
             },

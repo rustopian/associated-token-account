@@ -5,7 +5,7 @@
 //! allows the original tests to run against the p-ata program without a single modification.
 
 use {
-    crate::entrypoint::process_instruction as pinocchio_process_instruction,
+    pinocchio_ata_program::entrypoint::process_instruction as pinocchio_process_instruction,
     bincode,
     core::cell::RefCell,
     mollusk_svm::{program::loader_keys, Mollusk},

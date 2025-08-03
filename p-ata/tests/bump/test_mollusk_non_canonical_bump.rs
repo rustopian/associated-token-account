@@ -1,6 +1,6 @@
 use {
     super::test_bump_utils::setup_mollusk_for_bump_tests,
-    crate::tests::test_utils::{build_create_ata_instruction, CreateAtaInstructionType},
+    super::super::utils::test_utils::{build_create_ata_instruction, CreateAtaInstructionType},
     mollusk_svm::result::Check,
     solana_pubkey::Pubkey,
     solana_sdk::{program_error::ProgramError, signature::Keypair, signer::Signer},
@@ -97,7 +97,7 @@ fn test_rejects_suboptimal_bump() {
                 },
             );
 
-            let accounts = crate::tests::test_utils::create_ata_test_accounts(
+            let accounts = super::super::utils::test_utils::create_ata_test_accounts(
                 &payer,
                 sub_addr,
                 wallet,
@@ -126,7 +126,7 @@ fn test_rejects_suboptimal_bump() {
                 },
             );
 
-            let accounts = crate::tests::test_utils::create_ata_test_accounts(
+            let accounts = super::super::utils::test_utils::create_ata_test_accounts(
                 &payer,
                 canonical_addr,
                 wallet,

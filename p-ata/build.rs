@@ -54,7 +54,7 @@ fn generate_test_files() {
 pub mod {} {{
     // Provide the program_test module that the original test expects
     pub mod program_test {{
-        pub use crate::tests::mollusk_adapter::{{
+        pub use crate::utils::mollusk_adapter::{{
             mollusk_program_test as program_test,
             mollusk_program_test_2022 as program_test_2022,
             BanksClient, ProgramTestContext,
@@ -66,7 +66,7 @@ pub mod {} {{
     use std::vec::Vec;
     
     // Re-export mollusk types at the module level to override solana_program_test imports
-    pub use crate::tests::mollusk_adapter::{{BanksClient, ProgramTestContext}};
+    pub use crate::utils::mollusk_adapter::{{BanksClient, ProgramTestContext}};
     
     // Modified original test content
 {}

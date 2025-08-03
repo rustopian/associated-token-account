@@ -2,12 +2,12 @@
 #![cfg(test)]
 
 use {
-    crate::tests::test_utils::{
+    super::super::utils::test_utils::{
         build_create_ata_instruction, calculate_account_rent,
         create_mollusk_base_accounts_with_token, setup_mollusk_with_programs,
         CreateAtaInstructionType,
     },
-    mollusk_svm::{result::Check, Mollusk},
+    mollusk_svm::result::Check,
     solana_pubkey::Pubkey,
     solana_sdk::{account::Account, signature::Keypair, signer::Signer},
     solana_system_interface::{instruction as system_instruction, program as system_program},
@@ -16,7 +16,7 @@ use {
 
 #[test]
 fn success_create() {
-    let ata_program_id = spl_associated_token_account::id();
+    let _ata_program_id = spl_associated_token_account::id();
     let token_program_id = spl_token::id();
     let wallet_address = Pubkey::new_unique();
     let mint_account = Keypair::new();
@@ -80,7 +80,7 @@ fn success_create() {
 
     // Step 3: Create associated token account
     let create_ix = build_create_ata_instruction(
-        ata_program_id,
+        _ata_program_id,
         payer.pubkey(),
         associated_token_address,
         wallet_address,
@@ -134,7 +134,7 @@ fn success_using_deprecated_instruction_creator() {
     #[allow(deprecated)]
     use spl_associated_token_account::create_associated_token_account as deprecated_create_associated_token_account;
 
-    let ata_program_id = spl_associated_token_account::id();
+    let _ata_program_id = spl_associated_token_account::id();
     let token_program_id = spl_token::id();
     let wallet_address = Pubkey::new_unique();
     let mint_account = Keypair::new();

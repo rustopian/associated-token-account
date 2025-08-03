@@ -1,14 +1,14 @@
 use {
-    crate::tests::test_utils::{
+    super::super::utils::test_utils::{
         build_create_ata_instruction, setup_mollusk_with_programs, CreateAtaInstructionType,
     },
-    mollusk_svm::{program::loader_keys::LOADER_V3, result::Check, Mollusk},
+    mollusk_svm::result::Check,
     solana_pubkey::Pubkey,
     solana_sdk::{program_error::ProgramError, signature::Keypair, signer::Signer},
     std::vec,
 };
 
-use crate::entrypoint::MAX_SANE_ACCOUNT_LENGTH;
+use pinocchio_ata_program::entrypoint::MAX_SANE_ACCOUNT_LENGTH;
 
 #[test]
 fn test_account_length_too_small_cases() {
@@ -47,7 +47,7 @@ fn test_account_length_too_small_cases() {
             },
         );
 
-        let accounts = crate::tests::test_utils::create_ata_test_accounts(
+        let accounts = super::super::utils::test_utils::create_ata_test_accounts(
             &payer,
             ata_address,
             wallet,
@@ -104,7 +104,7 @@ fn test_account_length_boundary_values() {
             },
         );
 
-        let accounts = crate::tests::test_utils::create_ata_test_accounts(
+        let accounts = super::super::utils::test_utils::create_ata_test_accounts(
             &payer,
             ata_address,
             wallet,

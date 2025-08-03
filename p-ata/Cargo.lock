@@ -3194,6 +3194,7 @@ dependencies = [
  "spl-associated-token-account-client",
  "spl-token",
  "spl-token-2022",
+ "spl-token-2022-interface",
  "spl-token-group-interface",
  "spl-token-interface",
  "spl-token-metadata-interface",
@@ -7768,6 +7769,12 @@ dependencies = [
  "spl-type-length-value",
  "thiserror 2.0.12",
 ]
+
+[[package]]
+name = "spl-token-2022-interface"
+version = "0.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b768b8a30462b73406a39feca61bc1014ede479e8d3a311fdeb923d9ad68275"
 
 [[package]]
 name = "spl-token-confidential-transfer-ciphertext-arithmetic"

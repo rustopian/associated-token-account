@@ -1,6 +1,6 @@
 use {
-    crate::tests::{
-        benches::constants::*, create_mollusk_mint_data, create_mollusk_token_account_data,
+    super::test_utils::{
+        shared_constants::*, create_mollusk_mint_data, create_mollusk_token_account_data,
     },
     mollusk_svm::Mollusk,
     solana_account::Account,

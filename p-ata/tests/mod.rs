@@ -2,17 +2,9 @@
 //! It is not top-level marked as #[cfg(test)] since
 //! helpers are used by the benches module.
 
-pub mod test_account_parsing;
-pub mod test_account_validation;
-pub mod test_address_derivation;
-pub mod test_instruction_builders;
-
 // Organized test modules
 pub mod bump;
 pub mod token_account_len;
-
-// Benchmark modules - compiled unconditionally so that benchmarks have access to their helpers
-pub mod benches;
 
 // Always re-export test_utils when benchmarks/tests are enabled (including benches build)
 #[cfg(any(test, feature = "std"))]
