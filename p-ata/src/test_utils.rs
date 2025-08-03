@@ -96,7 +96,7 @@ impl AtaImplementation {
 }
 
 use std::format;
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 use std::{vec, vec::Vec};
 
 pub mod shared_constants {
@@ -236,7 +236,7 @@ pub struct AccountLayout {
 
 // ---- Shared Mollusk Test Utilities ----
 
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 use {
     mollusk_svm::{program::loader_keys::LOADER_V3, result::Check, Mollusk},
     solana_instruction::{AccountMeta, Instruction},
@@ -245,7 +245,7 @@ use {
 };
 
 /// Configuration for ATA programs to load in Mollusk
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 pub enum MolluskAtaSetup {
     PAtaDropIn,
     /// Load all ATA implementations for comparison (benchmarks)
@@ -258,7 +258,7 @@ pub enum MolluskAtaSetup {
 }
 
 /// Configuration for token programs to load in Mollusk
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 pub enum MolluskTokenSetup {
     /// Load just the specified token program
     Single(SolanaPubkey),
@@ -266,7 +266,7 @@ pub enum MolluskTokenSetup {
     WithToken2022(SolanaPubkey),
 }
 
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 pub fn setup_mollusk_unified(
     ata_setup: MolluskAtaSetup,
     token_setup: MolluskTokenSetup,
@@ -285,7 +285,7 @@ pub fn setup_mollusk_unified(
         }
         MolluskAtaSetup::AllImplementations => {
             // Load all ATA implementations for comparison (benchmarks)
-            #[cfg(feature = "std")]
+            #[cfg(any(test, feature = "std"))]
             {
                 let implementations = AtaImplementation::all();
                 for implementation in implementations.iter() {
@@ -340,7 +340,7 @@ pub fn setup_mollusk_unified(
 /// Common mollusk setup with ATA program and token program
 /// This wraps `setup_mollusk_unified` to load the P-ATA program, appropriate
 /// for all tests which are not comparing to SPL ATA.
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 pub fn setup_mollusk_with_programs(token_program_id: &SolanaPubkey) -> Mollusk {
     setup_mollusk_unified(
         MolluskAtaSetup::PAtaDropIn,
@@ -432,7 +432,7 @@ pub fn load_program_ids(manifest_dir: &str) -> AllProgramIds {
 }
 
 /// Create standard base accounts needed for mollusk tests
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 pub fn create_mollusk_base_accounts(payer: &Keypair) -> Vec<(SolanaPubkey, Account)> {
     [
         (
@@ -473,7 +473,7 @@ pub fn create_mollusk_base_accounts(payer: &Keypair) -> Vec<(SolanaPubkey, Accou
 }
 
 /// Create standard base accounts with token program
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 pub fn create_mollusk_base_accounts_with_token(
     payer: &Keypair,
     token_program_id: &SolanaPubkey,
@@ -495,7 +495,7 @@ pub fn create_mollusk_base_accounts_with_token(
 }
 
 /// Create standard base accounts with token program and wallet
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 pub fn create_mollusk_base_accounts_with_token_and_wallet(
     payer: &Keypair,
     wallet: &SolanaPubkey,
@@ -522,7 +522,7 @@ pub enum CreateAtaInstructionType {
     CreateIdempotent { bump: Option<u8> },
 }
 
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 /// Encodes the instruction data payload for ATA creation-related instructions.
 /// Extracted for reuse across test and benchmark builders.
 /// TODO(refactor): Once all builders use this helper, inline encoding logic above can be removed.
@@ -549,7 +549,7 @@ pub fn encode_create_ata_instruction_data(instruction_type: &CreateAtaInstructio
 }
 
 /// Build a create associated token account instruction with a given discriminator
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 pub fn build_create_ata_instruction(
     ata_program_id: SolanaPubkey,
     payer: SolanaPubkey,
@@ -575,7 +575,7 @@ pub fn build_create_ata_instruction(
 }
 
 /// Create valid token account data for mollusk testing (solana SDK compatible)
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 pub fn create_mollusk_token_account_data(
     mint: &SolanaPubkey,
     owner: &SolanaPubkey,
@@ -589,7 +589,7 @@ pub fn create_mollusk_token_account_data(
 }
 
 /// Create mint account data for mollusk testing
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 pub fn create_mollusk_mint_data(decimals: u8) -> Vec<u8> {
     unified_builders::create_mint_data(decimals)
 }
@@ -663,7 +663,7 @@ pub fn calculate_account_rent(len: usize) -> u64 {
         .minimum_balance(len)
 }
 
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 /// Helper function to update account data in accounts vector after instruction execution
 fn update_account_from_result(
     mollusk: &Mollusk,
@@ -683,7 +683,7 @@ fn update_account_from_result(
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 /// Creates and initializes a mint account with the given parameters.
 /// Returns a vector of accounts including the initialized mint and all necessary
 /// base accounts for testing.
@@ -745,7 +745,7 @@ pub fn create_test_mint(
 }
 
 /// Create standard ATA test accounts with all required program accounts
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 pub fn create_ata_test_accounts(
     payer: &Keypair,
     ata_address: SolanaPubkey,
@@ -803,8 +803,8 @@ pub mod account_builder {
         solana_account::Account,
         solana_pubkey::Pubkey as SolanaPubkey,
         solana_sysvar::rent,
-        std::vec::Vec,
         std::vec,
+        std::vec::Vec,
     };
 
     pub struct AccountBuilder;

@@ -1,2 +1,4 @@
-[build]
-target-dir = "target"
+[alias]
+bench = "bench --features build-programs"
+build = "build --features build-programs"
+build-program = "build-sbf --no-default-features --features create-prefunded-account"

@@ -72,7 +72,7 @@ pub mod address_gen {
         bytes[2] = test_number;
         bytes[3] = account_type_byte;
 
-        #[allow(clippy::unnecessary_range_loop)]
+        #[allow(clippy::needless_range_loop)]
         for i in 4..32 {
             bytes[i] = (i as u8)
                 .wrapping_mul(variant_byte)
