@@ -231,8 +231,8 @@ mod tests {
         );
     }
 
-    // ====================== Extension Size Tests ====================== 
-    
+    // ====================== Extension Size Tests ======================
+
     use {
         spl_token_2022::extension::{
             default_account_state::DefaultAccountState, group_pointer::GroupPointer,
@@ -444,8 +444,10 @@ mod tests {
             account_extensions.push(ExtensionType::ImmutableOwner);
         }
 
-        ExtensionType::try_calculate_account_len::<spl_token_2022::state::Account>(&account_extensions)
-            .expect("Failed to calculate account length")
+        ExtensionType::try_calculate_account_len::<spl_token_2022::state::Account>(
+            &account_extensions,
+        )
+        .expect("Failed to calculate account length")
     }
 
     const MINT_PAD_SIZE: usize = 83;
@@ -650,7 +652,8 @@ mod tests {
         let inline_size = calculate_account_size_from_mint_extensions(&mint_data);
 
         // TokenMetadata is mint-only, so account size should be base + ImmutableOwner
-        let expected_account_size = calculate_expected_ata_data_size(&[ExtensionType::ImmutableOwner]);
+        let expected_account_size =
+            calculate_expected_ata_data_size(&[ExtensionType::ImmutableOwner]);
 
         assert_eq!(
             inline_size,
@@ -710,5 +713,36 @@ mod tests {
                 _ => {}
             }
         }
+    }
+
+    #[test]
+    fn test_zero_extensions_returns_base_size() {
+        // Test that mint with no extensions returns base token account size + ImmutableOwner
+        let mint_data = create_base_mint_data();
+        let result = calculate_account_size_from_mint_extensions(&mint_data);
+        let expected_size = calculate_expected_ata_data_size(&[]);
+
+        assert_eq!(
+            result,
+            Some(expected_size),
+            "Mint with no extensions should return base account size + ImmutableOwner for Token-2022"
+        );
+    }
+
+    #[test]
+    fn test_token_metadata_account_size_with_max_lengths() {
+        // Test TokenMetadata extension with maximum field lengths
+        // Since TokenMetadata is mint-only, account should still get base size + ImmutableOwner
+        let mint_data = create_mint_with_mock_token_metadata();
+        let result = calculate_account_size_from_mint_extensions(&mint_data);
+
+        // TokenMetadata doesn't affect account size directly, but ImmutableOwner is added
+        let expected_size = calculate_expected_ata_data_size(&[ExtensionType::ImmutableOwner]);
+
+        assert_eq!(
+            result,
+            Some(expected_size),
+            "TokenMetadata with max lengths should not increase account size beyond ImmutableOwner"
+        );
     }
 }

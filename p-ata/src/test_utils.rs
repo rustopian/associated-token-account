@@ -222,7 +222,7 @@ pub fn setup_mollusk_unified(
 
                 // Benchmark types moved to separate benches/ crate - temporarily disabled
                 // TODO: Re-enable when benchmarks are properly structured
-                
+
                 // let manifest_dir = env!("CARGO_MANIFEST_DIR");
                 // let program_ids = BenchmarkSetup::load_program_ids(manifest_dir);
                 //

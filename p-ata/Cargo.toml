@@ -160,13 +160,13 @@ test-case = "3.3.1"
 
 [[bench]]
 name = "ata_instruction_benches"
-path = "src/tests/benches/ata_instruction_benches.rs"
+path = "benches/ata_instruction_benches.rs"
 harness = false
 required-features = ["std"]
 
 [[bench]]
 name = "failure_scenarios"
-path = "src/tests/benches/failure_scenarios.rs"
+path = "benches/failure_scenarios.rs"
 harness = false
 required-features = ["std"]
 

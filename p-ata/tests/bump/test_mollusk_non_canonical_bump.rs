@@ -1,6 +1,6 @@
 use {
-    super::test_bump_utils::setup_mollusk_for_bump_tests,
     super::super::utils::test_utils::{build_create_ata_instruction, CreateAtaInstructionType},
+    super::test_bump_utils::setup_mollusk_for_bump_tests,
     mollusk_svm::result::Check,
     solana_pubkey::Pubkey,
     solana_sdk::{program_error::ProgramError, signature::Keypair, signer::Signer},

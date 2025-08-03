@@ -1,9 +1,9 @@
 use {
+    super::super::utils::account_builder::AccountBuilder,
+    super::super::utils::test_utils::{build_create_ata_instruction, CreateAtaInstructionType},
     super::test_bump_utils::{
         find_wallet_with_on_curve_attack_opportunity, setup_mollusk_for_bump_tests,
     },
-    super::super::utils::account_builder::AccountBuilder,
-    super::super::utils::test_utils::{build_create_ata_instruction, CreateAtaInstructionType},
     mollusk_svm::{program::loader_keys::LOADER_V3, result::Check},
     solana_pubkey::Pubkey,
     solana_sdk::{

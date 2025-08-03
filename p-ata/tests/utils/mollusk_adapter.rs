@@ -5,10 +5,10 @@
 //! allows the original tests to run against the p-ata program without a single modification.
 
 use {
-    pinocchio_ata_program::entrypoint::process_instruction as pinocchio_process_instruction,
     bincode,
     core::cell::RefCell,
     mollusk_svm::{program::loader_keys, Mollusk},
+    pinocchio_ata_program::entrypoint::process_instruction as pinocchio_process_instruction,
     solana_program::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey},
     solana_program_test::*,
     solana_sdk::{

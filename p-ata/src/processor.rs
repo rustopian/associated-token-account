@@ -597,31 +597,31 @@ mod tests {
     use std::vec::Vec;
     use {
         pinocchio::{program_error::ProgramError, pubkey::Pubkey},
+        solana_keypair::Keypair,
+        solana_program::pubkey::Pubkey as SolanaPubkey,
+        solana_signer::Signer,
         spl_token_interface::state::{
             account::Account as TokenAccount, multisig::Multisig, Transmutable,
         },
         std::{collections::HashSet, vec},
-        solana_keypair::Keypair,
-        solana_program::pubkey::Pubkey as SolanaPubkey,
-        solana_signer::Signer,
     };
 
     // Test utility functions
     fn create_token_account_data(mint: &Pubkey, owner: &Pubkey, amount: u64) -> Vec<u8> {
         let mut data = vec![0u8; TokenAccount::LEN];
-        
+
         // Set mint (bytes 0-31)
         data[0..32].copy_from_slice(mint.as_ref());
-        
+
         // Set owner (bytes 32-63)
         data[32..64].copy_from_slice(owner.as_ref());
-        
+
         // Set amount (bytes 64-71)
         data[64..72].copy_from_slice(&amount.to_le_bytes());
-        
+
         // Set initialized state (byte 108)
         data[108] = 1;
-        
+
         data
     }
 
@@ -815,14 +815,24 @@ mod tests {
         let data = build_transfer_checked_data(0, 0);
         assert_eq!(data.len(), 10);
         assert_eq!(data[0], TRANSFER_CHECKED_DISCRIMINATOR);
-        assert_eq!(u64::from_le_bytes([data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8]]), 0);
+        assert_eq!(
+            u64::from_le_bytes([
+                data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8]
+            ]),
+            0
+        );
         assert_eq!(data[9], 0);
 
         // Test max values
         let data = build_transfer_checked_data(u64::MAX, u8::MAX);
         assert_eq!(data.len(), 10);
         assert_eq!(data[0], TRANSFER_CHECKED_DISCRIMINATOR);
-        assert_eq!(u64::from_le_bytes([data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8]]), u64::MAX);
+        assert_eq!(
+            u64::from_le_bytes([
+                data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8]
+            ]),
+            u64::MAX
+        );
         assert_eq!(data[9], u8::MAX);
     }
 
@@ -856,7 +866,7 @@ mod tests {
     #[test]
     fn test_discriminator_uniqueness() {
         use crate::recover::CLOSE_ACCOUNT_DISCRIMINATOR;
-        
+
         let discriminators = [
             INITIALIZE_ACCOUNT_3_DISCRIMINATOR,
             INITIALIZE_IMMUTABLE_OWNER_DISCRIMINATOR,
@@ -972,11 +982,10 @@ mod tests {
 
     #[test]
     fn test_fn_is_spl_token_program() {
-        assert!(is_spl_token_program(
-            &spl_token_interface::program::id()
-        ));
+        assert!(is_spl_token_program(&spl_token_interface::program::id()));
 
-        let token_2022_id = pinocchio_pubkey::pubkey!("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+        let token_2022_id =
+            pinocchio_pubkey::pubkey!("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
         assert!(!is_spl_token_program(&token_2022_id));
     }
 }

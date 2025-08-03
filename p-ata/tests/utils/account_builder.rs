@@ -1,6 +1,6 @@
 use {
     super::test_utils::{
-        shared_constants::*, create_mollusk_mint_data, create_mollusk_token_account_data,
+        create_mollusk_mint_data, create_mollusk_token_account_data, shared_constants::*,
     },
     mollusk_svm::Mollusk,
     solana_account::Account,
