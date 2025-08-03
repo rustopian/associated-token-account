@@ -1,16 +1,20 @@
-#![cfg(any(test, feature = "std"))]
+mod common;
+use common::*;
+use pinocchio_ata_program::test_utils::{load_program_ids, AtaImplementation, AtaVariant};
 
 use {
-    ::pinocchio_ata_program::tests::benches::{
-        account_comparison::{AccountComparisonService, ComparisonFormatter},
-        common::{
-            self as common, AtaImplementation, AtaVariant, BaseTestType, BenchmarkSetup,
-            ComparisonResult, TestVariant,
-        },
-        common_builders::CommonTestCaseBuilder,
-        formatter,
+    // Shared benchmark modules (imported via bench_support::* which re-exports common)
+    common::{
+        BaseTestType, BenchmarkResult, BenchmarkRunner, ComparisonResult, CompatibilityStatus,
+        TestBankId, TestVariant,
     },
+    common_builders::CommonTestCaseBuilder,
+    constants::*,
     mollusk_svm::Mollusk,
+    // External utilities
+    pinocchio_ata_program::test_utils::{
+        account_builder::AccountBuilder, setup_mollusk_unified, MolluskAtaSetup, MolluskTokenSetup,
+    },
     solana_account::Account,
     solana_instruction::Instruction,
     solana_logger,
@@ -445,7 +449,7 @@ impl PerformanceTestOrchestrator {
                 &spl_ata_execution.program_result,
             ) {
                 // Use the new comparison service
-                let comparison_service = AccountComparisonService::new();
+                let comparison_service = account_comparison::AccountComparisonService::new();
                 let comparison_results = comparison_service.compare_account_states(
                     &p_ata_execution.resulting_accounts,
                     &spl_ata_execution.resulting_accounts,
@@ -465,7 +469,7 @@ impl PerformanceTestOrchestrator {
 
                 // Format and display comparison results if there are any issues
                 if !all_equivalent || has_expected_differences {
-                    let formatter = ComparisonFormatter::new();
+                    let formatter = account_comparison::ComparisonFormatter::new();
                     let debug_output = formatter.format_comparison_results(&comparison_results);
 
                     if !debug_output.is_empty() {
@@ -534,49 +538,41 @@ fn main() {
     BenchmarkSetup::setup_sbf_environment(manifest_dir);
 
     let impls = AtaImplementation::all();
-    let program_ids = BenchmarkSetup::load_program_ids(manifest_dir);
-
-    println!(
-        "P-ATA Legacy Program ID: {}",
-        impls.pata_legacy_impl.program_id
-    );
-    println!(
-        "P-ATA Prefunded Program ID: {}",
-        impls.pata_prefunded_impl.program_id
-    );
-    println!("Token Program ID: {}", program_ids.token_program_id);
-
-    println!("SPL ATA Program ID: {}", impls.spl_impl.program_id);
+    let program_ids = load_program_ids(manifest_dir);
 
     println!("\n🔍 Running comparison between implementations");
 
     let mollusk = common::BenchmarkRunner::create_mollusk_for_all_ata_implementations(
-        &program_ids.token_program_id,
+        &Pubkey::new_from_array(program_ids.token_program_id),
     );
 
     // Validate prefunded P-ATA setup
     if let Err(e) = validate_ata_setup(
         &mollusk,
         &impls.pata_prefunded_impl,
-        &program_ids.token_program_id,
+        &Pubkey::new_from_array(program_ids.token_program_id),
     ) {
         panic!("P-ATA prefunded benchmark setup validation failed: {}", e);
     }
 
     // Validate SPL ATA setup
-    if let Err(e) = validate_ata_setup(&mollusk, &impls.spl_impl, &program_ids.token_program_id) {
+    if let Err(e) = validate_ata_setup(
+        &mollusk,
+        &impls.spl_impl,
+        &Pubkey::new_from_array(program_ids.token_program_id),
+    ) {
         panic!("SPL ATA benchmark setup validation failed: {}", e);
     }
 
     // Validate legacy P-ATA (without prefunded) setup
     println!(
         "Validating legacy P-ATA setup with token program {}",
-        program_ids.token_program_id
+        Pubkey::new_from_array(program_ids.token_program_id)
     );
     if let Err(e) = validate_ata_setup(
         &mollusk,
         &impls.pata_legacy_impl,
-        &program_ids.token_program_id,
+        &Pubkey::new_from_array(program_ids.token_program_id),
     ) {
         panic!("Legacy P-ATA benchmark setup validation failed: {}", e);
     }
@@ -586,7 +582,7 @@ fn main() {
         &impls.pata_legacy_impl,
         &impls.pata_prefunded_impl,
         &impls.spl_impl,
-        &program_ids.token_program_id,
+        &Pubkey::new_from_array(program_ids.token_program_id),
         iterations,
         run_entropy,
     );

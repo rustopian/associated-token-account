@@ -1,23 +1,19 @@
-#![cfg(any(test, feature = "std"))]
+mod common;
+use common::*;
+use pinocchio_ata_program::test_utils::{load_program_ids, AtaImplementation, AtaVariant};
 
 use {
-    ::pinocchio_ata_program::{
+    account_templates::FailureAccountBuilder,
+    common::{
+        random_seeded_pk, structured_pk, structured_pk_multi, AccountTypeId, BaseTestType,
+        BenchmarkResult, BenchmarkRunner, BenchmarkSetup, ComparisonResult, CompatibilityStatus,
+        TestBankId, TestVariant,
+    },
+    common_builders::{CommonTestCaseBuilder, FailureMode},
+    constants::account_sizes,
+    pinocchio_ata_program::{
         debug_log,
-        tests::{
-            address_gen::{random_seeded_pk, structured_pk, structured_pk_multi},
-            benches::{
-                account_templates,
-                common::{
-                    self as common, AtaImplementation, BaseTestType, BenchmarkResult,
-                    BenchmarkRunner, BenchmarkSetup, ComparisonResult, CompatibilityStatus,
-                    TestVariant,
-                },
-                common_builders::{self as common_builders, CommonTestCaseBuilder, FailureMode},
-                constants::account_sizes,
-            },
-            utils::account_builder::AccountBuilder,
-            NATIVE_LOADER_ID,
-        },
+        test_utils::{account_builder::AccountBuilder, shared_constants::NATIVE_LOADER_ID},
     },
     solana_account::Account,
     solana_instruction::{AccountMeta, Instruction},
@@ -347,7 +343,7 @@ fn build_base_failure_accounts(
     );
 
     // Use consistent variant for mint and wallet to enable byte-for-byte comparison
-    let consistent_variant = &common::AtaVariant::SplAta;
+    let consistent_variant = &AtaVariant::SplAta;
     let mint = structured_pk(
         consistent_variant,
         common::TestBankId::Failures,
@@ -391,20 +387,23 @@ impl RecoverNestedAccounts {
             BaseTestType::RecoverNested,
             TestVariant::BASE,
         );
-        let [nested_ata, nested_mint, dest_ata, owner_ata, owner_mint, wallet] =
-            structured_pk_multi(
-                &ata_impl.variant,
-                common::TestBankId::Failures,
-                test_number,
-                [
-                    common::AccountTypeId::NestedAta,
-                    common::AccountTypeId::NestedMint,
-                    common::AccountTypeId::Ata, // dest_ata
-                    common::AccountTypeId::OwnerAta,
-                    common::AccountTypeId::OwnerMint,
-                    common::AccountTypeId::Wallet,
-                ],
-            );
+        let pubkeys = structured_pk_multi(
+            ata_impl.variant,
+            TestBankId::Failures,
+            test_number,
+            &[
+                AccountTypeId::NestedAta,
+                AccountTypeId::NestedMint,
+                AccountTypeId::Ata, // dest_ata
+                AccountTypeId::OwnerAta,
+                AccountTypeId::OwnerMint,
+                AccountTypeId::Wallet,
+            ],
+        );
+        let [nested_ata, nested_mint, dest_ata, owner_ata, owner_mint, wallet]: [Pubkey; 6] =
+            pubkeys
+                .try_into()
+                .expect("structured_pk_multi should return exactly 6 pubkeys");
         Self {
             nested_ata,
             nested_mint,
@@ -716,11 +715,11 @@ impl FailureTestBuilder {
                 // Replace ATA with one pointing to wrong mint
                 if let Some(pos) = accounts.iter().position(|(address, _)| *address == *ata) {
                     accounts[pos].1 =
-                        AccountBuilder::token_account(&wrong_mint, wallet, 0, token_program_id);
+                        AccountBuilder::token_account(&wrong_mint, &wallet, 0, &token_program_id);
                 }
 
                 // Add the wrong mint account
-                accounts.push((wrong_mint, AccountBuilder::mint(0, token_program_id)));
+                accounts.push((wrong_mint, AccountBuilder::mint(0, &token_program_id)));
             },
         )
     }
@@ -749,7 +748,7 @@ impl FailureTestBuilder {
                 // Replace ATA with one having wrong owner
                 if let Some(pos) = accounts.iter().position(|(address, _)| *address == *ata) {
                     accounts[pos].1 =
-                        AccountBuilder::token_account(mint, &wrong_owner, 0, token_program_id);
+                        AccountBuilder::token_account(mint, &wrong_owner, 0, &token_program_id);
                 }
             },
         )
@@ -960,7 +959,7 @@ impl FailureTestBuilder {
             // The victim's wallet (used as seed in instruction but not for derivation)
             (victim_wallet, AccountBuilder::system_account(0)),
             // Attacker mint
-            (victim_mint, AccountBuilder::mint(0, token_program_id)),
+            (victim_mint, AccountBuilder::mint(0, &token_program_id)),
             // System program
             (
                 solana_system_interface::program::id(),
@@ -1607,40 +1606,51 @@ fn main() {
     BenchmarkSetup::setup_sbf_environment(manifest_dir);
 
     // Load program IDs
-    let program_ids = BenchmarkSetup::load_program_ids(manifest_dir);
+    let program_ids = load_program_ids(manifest_dir);
 
     // Create implementation structures
-    let p_ata_impl = AtaImplementation::p_ata_prefunded(program_ids.pata_prefunded_program_id);
+    let p_ata_impl = AtaImplementation::p_ata_prefunded(Pubkey::new_from_array(
+        program_ids.pata_prefunded_program_id,
+    ));
 
-    println!("P-ATA Program ID: {}", program_ids.pata_legacy_program_id);
+    println!(
+        "P-ATA Program ID: {}",
+        Pubkey::new_from_array(program_ids.pata_legacy_program_id)
+    );
     println!(
         "Prefunded Program ID: {}",
-        program_ids.pata_prefunded_program_id
+        Pubkey::new_from_array(program_ids.pata_prefunded_program_id)
     );
     println!(
         "Original ATA Program ID: {}",
-        program_ids.spl_ata_program_id
+        Pubkey::new_from_array(program_ids.spl_ata_program_id)
     );
-    println!("Token Program ID: {}", program_ids.token_program_id);
+    println!(
+        "Token Program ID: {}",
+        Pubkey::new_from_array(program_ids.token_program_id)
+    );
 
-    let spl_ata_impl = AtaImplementation::spl_ata(program_ids.spl_ata_program_id);
+    let spl_ata_impl =
+        AtaImplementation::spl_ata(Pubkey::new_from_array(program_ids.spl_ata_program_id));
     println!(
         "Original ATA Program ID: {}",
-        program_ids.spl_ata_program_id
+        Pubkey::new_from_array(program_ids.spl_ata_program_id)
     );
 
     println!("\n🔍 Running comprehensive failure comparison between implementations");
 
     // Validate both setups work
-    let p_ata_mollusk =
-        BenchmarkRunner::create_mollusk_for_all_ata_implementations(&program_ids.token_program_id);
-    let original_mollusk =
-        BenchmarkRunner::create_mollusk_for_all_ata_implementations(&program_ids.token_program_id);
+    let p_ata_mollusk = BenchmarkRunner::create_mollusk_for_all_ata_implementations(
+        &Pubkey::new_from_array(program_ids.token_program_id),
+    );
+    let original_mollusk = BenchmarkRunner::create_mollusk_for_all_ata_implementations(
+        &Pubkey::new_from_array(program_ids.token_program_id),
+    );
 
     if let Err(e) = BenchmarkSetup::validate_setup(
         &p_ata_mollusk,
         &p_ata_impl.program_id,
-        &program_ids.token_program_id,
+        &Pubkey::new_from_array(program_ids.token_program_id),
     ) {
         panic!("P-ATA failure test setup validation failed: {}", e);
     }
@@ -1648,7 +1658,7 @@ fn main() {
     if let Err(e) = BenchmarkSetup::validate_setup(
         &original_mollusk,
         &spl_ata_impl.program_id,
-        &program_ids.token_program_id,
+        &Pubkey::new_from_array(program_ids.token_program_id),
     ) {
         panic!("Original ATA failure test setup validation failed: {}", e);
     }
@@ -1657,7 +1667,7 @@ fn main() {
     let comparison_results = FailureTestRunner::run_comprehensive_failure_comparison(
         &p_ata_impl,
         &spl_ata_impl,
-        &program_ids.token_program_id,
+        &Pubkey::new_from_array(program_ids.token_program_id),
     );
 
     // Print summary

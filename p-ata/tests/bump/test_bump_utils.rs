@@ -3,7 +3,7 @@
 use super::super::utils::address_gen::{derive_address_with_bump, is_off_curve};
 #[cfg(any(test, feature = "std"))]
 use {
-    super::super::utils::test_utils::setup_mollusk_with_programs, mollusk_svm::Mollusk,
+    mollusk_svm::Mollusk, pinocchio_ata_program::test_utils::setup_mollusk_with_programs,
     solana_pubkey::Pubkey,
 };
 

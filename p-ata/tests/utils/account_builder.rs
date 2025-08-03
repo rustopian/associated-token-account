@@ -1,14 +1,16 @@
 use {
-    super::test_utils::{
-        create_mollusk_mint_data, create_mollusk_token_account_data, shared_constants::*,
-    },
     mollusk_svm::Mollusk,
+    pinocchio_ata_program::{
+        debug_log,
+        test_utils::{
+            create_mollusk_mint_data, create_mollusk_token_account_data, shared_constants::*,
+        },
+    },
     solana_account::Account,
     solana_pubkey::Pubkey,
     solana_sysvar::rent,
     spl_token_2022::extension::ExtensionType,
-    std::vec,
-    std::vec::Vec,
+    std::vec::{self, Vec},
 };
 
 #[cfg(feature = "full-debug-logs")]
@@ -53,7 +55,7 @@ impl AccountBuilder {
         Account {
             lamports: TOKEN_ACCOUNT_RENT_EXEMPT,
             data: {
-                crate::debug_log!(
+                debug_log!(
                     "🔧 Creating token account data | Mint: {} | Owner: {}",
                     mint.to_string()[0..8].to_string(),
                     owner.to_string()[0..8].to_string()

@@ -1,7 +1,9 @@
 use {
-    super::super::utils::test_utils::{build_create_ata_instruction, CreateAtaInstructionType},
     super::test_bump_utils::setup_mollusk_for_bump_tests,
     mollusk_svm::result::Check,
+    pinocchio_ata_program::test_utils::{
+        build_create_ata_instruction, create_ata_test_accounts, CreateAtaInstructionType,
+    },
     solana_pubkey::Pubkey,
     solana_sdk::{program_error::ProgramError, signature::Keypair, signer::Signer},
     std::vec::Vec,
@@ -97,13 +99,8 @@ fn test_rejects_suboptimal_bump() {
                 },
             );
 
-            let accounts = super::super::utils::test_utils::create_ata_test_accounts(
-                &payer,
-                sub_addr,
-                wallet,
-                mint_pubkey,
-                token_program_id,
-            );
+            let accounts =
+                create_ata_test_accounts(&payer, sub_addr, wallet, mint_pubkey, token_program_id);
 
             mollusk.process_and_validate_instruction(
                 &ix_fail,
@@ -126,7 +123,7 @@ fn test_rejects_suboptimal_bump() {
                 },
             );
 
-            let accounts = super::super::utils::test_utils::create_ata_test_accounts(
+            let accounts = create_ata_test_accounts(
                 &payer,
                 canonical_addr,
                 wallet,

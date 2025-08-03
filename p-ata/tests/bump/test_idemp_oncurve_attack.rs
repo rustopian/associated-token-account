@@ -1,17 +1,20 @@
 use {
-    super::super::utils::account_builder::AccountBuilder,
-    super::super::utils::test_utils::{build_create_ata_instruction, CreateAtaInstructionType},
-    super::test_bump_utils::{
-        find_wallet_with_on_curve_attack_opportunity, setup_mollusk_for_bump_tests,
+    super::{
+        super::utils::account_builder::AccountBuilder,
+        test_bump_utils::{
+            find_wallet_with_on_curve_attack_opportunity, setup_mollusk_for_bump_tests,
+        },
     },
     mollusk_svm::{program::loader_keys::LOADER_V3, result::Check},
+    pinocchio_ata_program::test_utils::{
+        build_create_ata_instruction, CreateAtaInstructionType, NATIVE_LOADER_ID,
+    },
     solana_pubkey::Pubkey,
     solana_sdk::{
         account::Account, program_error::ProgramError, signature::Keypair, signer::Signer,
     },
     solana_sdk_ids::{system_program, sysvar},
-    std::vec,
-    std::vec::Vec,
+    std::vec::{self, Vec},
 };
 
 /// Manually create a token account at a given address with proper token account data.
@@ -76,7 +79,7 @@ fn test_rejects_on_curve_address_in_idempotent_check() {
             Account {
                 lamports: 0,
                 data: Vec::new(),
-                owner: super::super::utils::test_utils::NATIVE_LOADER_ID,
+                owner: NATIVE_LOADER_ID,
                 executable: true,
                 rent_epoch: 0,
             },

@@ -1,2 +1,2 @@
-[alias]
-bench = "bench --features build-programs" 
+[build]
+target-dir = "target"

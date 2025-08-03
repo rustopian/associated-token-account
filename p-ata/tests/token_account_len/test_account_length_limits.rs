@@ -1,8 +1,9 @@
 use {
-    super::super::utils::test_utils::{
-        build_create_ata_instruction, setup_mollusk_with_programs, CreateAtaInstructionType,
-    },
     mollusk_svm::result::Check,
+    pinocchio_ata_program::test_utils::{
+        build_create_ata_instruction, create_ata_test_accounts, setup_mollusk_with_programs,
+        CreateAtaInstructionType,
+    },
     solana_pubkey::Pubkey,
     solana_sdk::{program_error::ProgramError, signature::Keypair, signer::Signer},
     std::vec,
@@ -47,13 +48,7 @@ fn test_account_length_too_small_cases() {
             },
         );
 
-        let accounts = super::super::utils::test_utils::create_ata_test_accounts(
-            &payer,
-            ata_address,
-            wallet,
-            mint,
-            token_program,
-        );
+        let accounts = create_ata_test_accounts(&payer, ata_address, wallet, mint, token_program);
 
         // Token-2022 requires minimum 170 bytes (165 base + 5 for ImmutableOwner)
         // All lengths under 170 should fail with InvalidAccountData
@@ -104,13 +99,7 @@ fn test_account_length_boundary_values() {
             },
         );
 
-        let accounts = super::super::utils::test_utils::create_ata_test_accounts(
-            &payer,
-            ata_address,
-            wallet,
-            mint,
-            token_program,
-        );
+        let accounts = create_ata_test_accounts(&payer, ata_address, wallet, mint, token_program);
 
         if length <= MAX_SANE_ACCOUNT_LENGTH {
             mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);

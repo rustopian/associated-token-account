@@ -3,11 +3,11 @@
 
 use {
     super::super::utils::account_builder::AccountBuilder,
-    super::super::utils::test_utils::{
+    mollusk_svm::result::{Check, ProgramResult},
+    pinocchio_ata_program::test_utils::{
         build_create_ata_instruction, create_test_mint, setup_mollusk_with_programs,
         CreateAtaInstructionType,
     },
-    mollusk_svm::result::{Check, ProgramResult},
     solana_instruction::AccountMeta,
     solana_program::program_error::ProgramError,
     solana_pubkey::Pubkey,

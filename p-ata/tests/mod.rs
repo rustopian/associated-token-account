@@ -6,9 +6,7 @@
 pub mod bump;
 pub mod token_account_len;
 
-// Always re-export test_utils when benchmarks/tests are enabled (including benches build)
-#[cfg(any(test, feature = "std"))]
-pub use utils::test_utils::*;
+// Always re-export utils when benchmarks/tests are enabled (including benches build)
 #[cfg(any(test, feature = "std"))]
 pub use utils::*;
 
@@ -16,7 +14,6 @@ pub mod utils {
     pub mod account_builder;
     pub mod address_gen;
     pub mod mollusk_adapter;
-    pub mod test_utils;
 }
 
 #[cfg(test)]

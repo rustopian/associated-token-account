@@ -10,7 +10,9 @@ pub mod processor;
 pub mod recover;
 pub mod size;
 
-#[cfg(any(test, feature = "std"))]
+#[cfg(feature = "std")]
+pub mod test_helpers;
+#[cfg(feature = "std")]
 pub mod test_utils;
 #[cfg(any(test, feature = "std"))]
 extern crate std;

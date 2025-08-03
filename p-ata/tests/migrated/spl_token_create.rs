@@ -2,12 +2,12 @@
 #![cfg(test)]
 
 use {
-    super::super::utils::test_utils::{
+    mollusk_svm::result::Check,
+    pinocchio_ata_program::test_utils::{
         build_create_ata_instruction, calculate_account_rent,
         create_mollusk_base_accounts_with_token, setup_mollusk_with_programs,
         CreateAtaInstructionType,
     },
-    mollusk_svm::result::Check,
     solana_pubkey::Pubkey,
     solana_sdk::{account::Account, signature::Keypair, signer::Signer},
     solana_system_interface::{instruction as system_instruction, program as system_program},

@@ -2,10 +2,10 @@
 #![cfg(test)]
 
 use {
-    super::super::utils::test_utils::{
+    mollusk_svm::{program::loader_keys::LOADER_V3, result::Check, Mollusk},
+    pinocchio_ata_program::test_utils::{
         create_mollusk_base_accounts_with_token_and_wallet, setup_mollusk_with_programs,
     },
-    mollusk_svm::{program::loader_keys::LOADER_V3, result::Check, Mollusk},
     solana_instruction::{AccountMeta, Instruction},
     solana_program::program_error::ProgramError,
     solana_pubkey::Pubkey,

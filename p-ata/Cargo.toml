@@ -19,6 +19,7 @@ create-prefunded-account = []
 build-programs = []
 comparison-bench = ["build-programs"]
 default = ["create-prefunded-account"]
+dev = ["std", "create-prefunded-account"]
 full-debug-logs = []
 bench-transfer-unchecked = []
 test-debug = []
@@ -169,4 +170,3 @@ name = "failure_scenarios"
 path = "benches/failure_scenarios.rs"
 harness = false
 required-features = ["std"]
-

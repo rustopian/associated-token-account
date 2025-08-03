@@ -233,7 +233,7 @@ mod builder {
         println!("cargo:warning=Building P-ATA prefunded variant...");
 
         let output = Command::new("cargo")
-            .args(["build-sbf", "--features", "create-prefunded-account"])
+            .args(["build-sbf", "--features", "create-prefunded-account", "--no-default-features"])
             .current_dir(manifest_dir)
             .output()
             .expect("Failed to execute cargo build-sbf for P-ATA prefunded");
@@ -251,7 +251,7 @@ mod builder {
 
         if let Ok(keypair_data) = std::fs::read_to_string(&keypair_path) {
             if let Ok(keypair_bytes) = serde_json::from_str::<Vec<u8>>(&keypair_data) {
-                if keypair_bytes.len() >= 32 {
+                if keypair_bytes.len() >= 64 {
                     let pubkey_bytes: [u8; 32] = keypair_bytes[32..64].try_into().unwrap();
                     let program_id = Pubkey::from(pubkey_bytes);
                     println!(
@@ -296,7 +296,7 @@ mod builder {
         println!("cargo:warning=Building P-ATA legacy variant...");
 
         let output = Command::new("cargo")
-            .args(["build-sbf"])
+            .args(["build-sbf", "--no-default-features"])
             .current_dir(manifest_dir)
             .output()
             .expect("Failed to execute cargo build-sbf for P-ATA legacy");
