@@ -14,8 +14,6 @@ use {
     },
 };
 
-// ========================== ACCOUNT TYPE ENUM ==========================
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AccountType {
     Payer,
@@ -58,8 +56,6 @@ impl AccountType {
     }
 }
 
-// ========================== UTILITY FUNCTIONS ==========================
-
 /// Calculate data differences between two byte arrays with a configurable limit
 fn calculate_data_differences(
     left_data: &[u8],
@@ -84,8 +80,6 @@ fn calculate_data_differences(
 
     differences
 }
-
-// ========================== CORE COMPARISON TYPES ==========================
 
 #[derive(Debug, Clone)]
 pub struct AccountComparison {
@@ -144,8 +138,6 @@ pub struct TokenAccountAnalysis {
     pub right_state: u8,
 }
 
-// ========================== COMPARISON TRAITS ==========================
-
 pub trait AccountComparator {
     fn compare(
         &self,
@@ -155,8 +147,6 @@ pub trait AccountComparator {
         position: usize,
     ) -> AccountComparison;
 }
-
-// ========================== SPECIFIC COMPARATORS ==========================
 
 pub struct TokenAccountComparator;
 
@@ -306,8 +296,6 @@ impl StandardAccountComparator {
         calculate_data_differences(left_data, right_data, 20)
     }
 }
-
-// ========================== COMPARISON SERVICE ==========================
 
 pub struct AccountComparisonService {
     token_comparator: TokenAccountComparator,
@@ -465,8 +453,6 @@ impl AccountComparisonService {
             .any(|c| c.account_type == AccountType::RentSysvar && c.is_equivalent())
     }
 }
-
-// ========================== FORMATTING SERVICE ==========================
 
 pub struct ComparisonFormatter;
 

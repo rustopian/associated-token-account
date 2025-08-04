@@ -59,7 +59,6 @@ pub struct CreateAccounts<'a> {
     pub associated_token_account_to_create: &'a AccountInfo,
     pub wallet: &'a AccountInfo,
     pub mint: &'a AccountInfo,
-    #[allow(dead_code)]
     pub system_program: &'a AccountInfo,
     pub token_program: &'a AccountInfo,
     pub rent_sysvar: Option<&'a AccountInfo>,
@@ -416,7 +415,7 @@ pub(crate) fn create_and_initialize_ata(
 /// - **Other builds**: Returns `false`
 #[inline(always)]
 #[allow(unused_variables)]
-pub(crate) fn is_off_curve(address: &Pubkey) -> bool {
+pub fn is_off_curve(address: &Pubkey) -> bool {
     #[cfg(target_os = "solana")]
     {
         const ED25519_CURVE_ID: u64 = 0;
@@ -593,6 +592,7 @@ pub(crate) fn process_create_associated_token_account(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::validate_token_account_structure;
     use core::ptr;
     use std::vec::Vec;
     use {
@@ -625,31 +625,6 @@ mod tests {
         data
     }
 
-    fn validate_token_account_structure(
-        data: &[u8],
-        expected_mint: &Pubkey,
-        expected_owner: &Pubkey,
-    ) -> bool {
-        if data.len() < TokenAccount::LEN {
-            return false;
-        }
-
-        // Check mint
-        if &data[0..32] != expected_mint.as_ref() {
-            return false;
-        }
-
-        // Check owner
-        if &data[32..64] != expected_owner.as_ref() {
-            return false;
-        }
-
-        // Check initialized state
-        data[108] != 0
-    }
-
-    // ====================== Address Derivation Tests ======================
-
     #[test]
     fn test_is_off_curve_true() {
         let program_id = SolanaPubkey::new_unique();
@@ -669,8 +644,6 @@ mod tests {
         let result = is_off_curve(&pinocchio_format);
         assert!(!result);
     }
-
-    // ====================== Account Validation Tests ======================
 
     #[test]
     fn test_valid_token_account_data() {
@@ -768,8 +741,6 @@ mod tests {
         assert!(validate_token_account_structure(&data, &mint, &owner));
         assert!(valid_token_account_data(&data));
     }
-
-    // ====================== Instruction Builder Tests ======================
 
     #[test]
     fn test_build_initialize_account3_data_basic() {
@@ -885,8 +856,6 @@ mod tests {
             "All discriminators must be unique"
         );
     }
-
-    // ====================== Account Parsing Tests ======================
 
     // Test utility - AccountLayout structure for creating test accounts
     #[repr(C)]

@@ -11,7 +11,7 @@ use std::path::Path;
 use std::process::Command;
 
 #[cfg(feature = "build-programs")]
-use {serde_json, solana_pubkey::Pubkey};
+use solana_pubkey::Pubkey;
 
 fn main() {
     println!("cargo:rerun-if-changed=programs/token");
@@ -122,9 +122,9 @@ mod builder {
         let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
 
         update_submodules(&manifest_dir);
-        build_p_token(&manifest_dir, &Path::new(""));
-        build_token_2022(&manifest_dir, &Path::new(""));
-        build_spl_ata(&manifest_dir, &Path::new(""));
+        build_p_token(&manifest_dir, Path::new(""));
+        build_token_2022(&manifest_dir, Path::new(""));
+        build_spl_ata(&manifest_dir, Path::new(""));
         build_p_ata_variants(&manifest_dir);
 
         println!("cargo:warning=Token programs built successfully!");

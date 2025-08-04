@@ -119,8 +119,6 @@ static TEST_CONFIGS: &[TestConfiguration] = &[
     },
 ];
 
-// ============================ SETUP AND CONFIGURATION =============================
-
 /// Validate that a given ATA implementation can successfully create a basic account.
 fn validate_ata_setup(
     mollusk: &Mollusk,
@@ -156,8 +154,6 @@ fn validate_ata_setup(
         )),
     }
 }
-
-// =============================== COMPARISON FRAMEWORK ===============================
 
 struct PerformanceTestOrchestrator;
 
@@ -481,8 +477,6 @@ impl PerformanceTestOrchestrator {
         comparison
     }
 }
-
-// ================================= MAIN =====================================
 
 fn main() {
     // Get number of iterations from environment or arguments

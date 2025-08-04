@@ -15,8 +15,7 @@ use {
     std::vec::Vec,
 };
 
-/// Manually create a token account at a given address with proper token account data.
-/// This simulates an attacker manually creating an account outside of the ATA program.
+/// Simulate an attacker manually creating an account outside of the ATA program.
 fn create_manual_token_account(mint: Pubkey, owner: Pubkey, token_program: Pubkey) -> Account {
     let token_account_data = AccountBuilder::token_account(&mint, &owner, 0, &spl_token::id()).data;
 

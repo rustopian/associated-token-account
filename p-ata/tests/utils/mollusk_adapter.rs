@@ -58,8 +58,6 @@ fn id() -> Pubkey {
     spl_associated_token_account::id()
 }
 
-// ================= MOLLUSK-BASED TEST RUNNERS =================
-
 /// Mollusk-based banks client that matches the original API
 pub struct MolluskBanksClient {
     pub mollusk: Mollusk,

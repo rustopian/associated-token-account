@@ -767,8 +767,6 @@ pub fn create_ata_test_accounts(
     ]
 }
 
-// ========================== ACCOUNT BUILDER MODULE ============================
-
 pub mod account_builder {
     use {
         super::create_mollusk_mint_data,

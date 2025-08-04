@@ -147,8 +147,6 @@ impl BenchmarkSetup {
     }
 }
 
-// ========================== SHARED COMPARISON FRAMEWORK ============================
-
 #[derive(Debug, PartialEq, Clone)]
 pub enum CompatibilityStatus {
     /// Both implementations succeeded and produced byte-for-byte identical results.
@@ -193,8 +191,6 @@ pub struct ComparisonResult {
     pub compute_savings: Option<i64>,
     pub compatibility_status: CompatibilityStatus,
 }
-
-// ========================== SHARED COMPARISON RUNNER ============================
 
 /// Post-execution verification function type
 /// Takes pre-execution accounts, post-execution accounts, and instruction
@@ -640,8 +636,6 @@ impl BenchmarkRunner {
     }
 }
 
-// ========================== BASE TEST TYPES ============================
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter, Display)]
 #[strum(serialize_all = "snake_case")]
 pub enum BaseTestType {
@@ -737,8 +731,6 @@ impl BaseTestType {
         }
     }
 }
-
-// ========================== OPTIMIZATION FUNCTIONS ============================
 
 /// Generate random signers and find optimal multisig wallet for nested ATA operations
 pub fn find_optimal_multisig_for_nested_ata(

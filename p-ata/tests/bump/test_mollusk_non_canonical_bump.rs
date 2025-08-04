@@ -21,7 +21,6 @@ fn find_wallet_pair(
 ) -> (Pubkey, Pubkey, Pubkey) {
     assert!(canonical_bump > sub_bump);
     const MAX_FIND_ATTEMPTS: u32 = 40_000;
-    // as long as each number is >=250,
     for _ in 0..MAX_FIND_ATTEMPTS {
         let wallet = Pubkey::new_unique();
 

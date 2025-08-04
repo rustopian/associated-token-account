@@ -231,8 +231,6 @@ mod tests {
         );
     }
 
-    // ====================== Extension Size Tests ======================
-
     use {
         spl_token_2022::extension::{
             default_account_state::DefaultAccountState, group_pointer::GroupPointer,

@@ -30,12 +30,8 @@ use {
     strum::Display,
 };
 
-// ================================ FAILURE TEST CONSTANTS ================================
-
 const FAKE_SYSTEM_PROGRAM_ID: Pubkey = Pubkey::new_from_array([1u8; 32]);
 const FAKE_TOKEN_PROGRAM_ID: Pubkey = Pubkey::new_from_array([2u8; 32]);
-
-// ================================ FAILURE TEST CONFIGURATION ================================
 
 /// Configuration for a failure test case
 #[derive(Clone)]
@@ -303,8 +299,6 @@ fn get_failure_tests() -> Vec<FailureTestConfig> {
     ]
 }
 
-// ================================ FAILURE TEST HELPERS ================================
-
 /// Log test information for debugging - only shown with --full-debug-logs feature
 #[allow(unused)]
 fn log_test_info(test_name: &str, ata_impl: &AtaImplementation, addresses: &[(&str, &Pubkey)]) {
@@ -366,8 +360,6 @@ fn build_base_failure_accounts(
 
     (payer, mint, wallet)
 }
-
-// ================================ FAILURE TEST BUILDERS ================================
 
 /// Holds the set of accounts used in RecoverNested scenarios.
 struct RecoverNestedAccounts {
@@ -1038,8 +1030,6 @@ impl FailureTestBuilder {
     }
 }
 
-// ================================ FAILURE TEST COMPARISON RUNNER ================================
-
 struct FailureTestRunner;
 
 impl FailureTestRunner {
@@ -1549,8 +1539,6 @@ impl FailureTestRunner {
         }
     }
 }
-
-// ================================ MAIN FUNCTION ================================
 
 fn main() {
     // Completely suppress debug output from Mollusk and Solana runtime
