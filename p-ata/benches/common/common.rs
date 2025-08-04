@@ -22,9 +22,6 @@ use {
     strum::{Display, EnumIter},
 };
 
-// ========================== SHARED BENCHMARK SETUP ============================
-
-/// Helper function to handle logging setup with conditional debug features
 fn setup_logging(enable_debug: bool) {
     if enable_debug {
         std::env::set_var("RUST_LOG", "debug");

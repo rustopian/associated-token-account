@@ -3,18 +3,9 @@ use common::*;
 use pinocchio_ata_program::test_utils::{load_program_ids, AtaImplementation, AtaVariant};
 
 use {
-    // Shared benchmark modules (imported via bench_support::* which re-exports common)
-    common::{
-        BaseTestType, BenchmarkResult, BenchmarkRunner, ComparisonResult, CompatibilityStatus,
-        TestVariant,
-    },
+    common::{BaseTestType, ComparisonResult, TestVariant},
     common_builders::CommonTestCaseBuilder,
-    constants::*,
     mollusk_svm::Mollusk,
-    // External utilities
-    pinocchio_ata_program::test_utils::{
-        account_builder::AccountBuilder, setup_mollusk_unified, MolluskAtaSetup, MolluskTokenSetup,
-    },
     solana_account::Account,
     solana_instruction::Instruction,
     solana_logger,
@@ -226,7 +217,6 @@ impl PerformanceTestOrchestrator {
         let mut matrix_results = std::collections::HashMap::new();
         let mut all_results = Vec::new();
 
-        // Run all test configurations
         for config in TEST_CONFIGS {
             let base_test = config.base_test;
             println!("\n--- Testing variant {} ---", base_test);

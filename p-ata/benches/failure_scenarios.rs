@@ -3,7 +3,6 @@ use common::*;
 use pinocchio_ata_program::test_utils::{load_program_ids, AtaImplementation, AtaVariant};
 
 use {
-    account_templates::FailureAccountBuilder,
     common::{
         BaseTestType, BenchmarkResult, BenchmarkRunner, BenchmarkSetup, ComparisonResult,
         CompatibilityStatus, TestVariant,
@@ -352,8 +351,6 @@ fn build_base_failure_accounts(
         test_number,
         AccountTypeId::Mint,
     );
-    // Use random seeded pubkey instead of optimal bump hunting
-    // Fixed seed ensures consistency across implementations for fair comparison
     let simple_entropy = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -1370,7 +1367,6 @@ impl FailureTestRunner {
             }
         }
 
-        Self::print_failure_summary(&results);
         Self::output_failure_test_data(&results);
         results
     }
@@ -1473,35 +1469,7 @@ impl FailureTestRunner {
 
     /// Print failure test summary with compatibility analysis
     fn print_failure_summary(results: &[ComparisonResult]) {
-        use std::collections::BTreeMap;
-
-        println!("\n=== FAILURE SCENARIO COMPATIBILITY SUMMARY ===");
-
-        // Use BTreeMap to keep categories in a consistent order
-        let failure_tests = get_failure_tests();
-        let mut categorized_results: BTreeMap<String, Vec<&ComparisonResult>> = BTreeMap::new();
-        let mut all_configs: std::collections::HashMap<String, &FailureTestConfig> = failure_tests
-            .iter()
-            .map(|c| (c.name.to_string(), c))
-            .collect();
-
-        for r in results {
-            if let Some(config) = all_configs.remove(&r.test_name) {
-                categorized_results
-                    .entry(config.category.to_string())
-                    .or_default()
-                    .push(r);
-            }
-        }
-
-        for (category, cat_results) in categorized_results {
-            println!("\n--- {} ---", category);
-            for r in cat_results {
-                Self::print_single_failure_result(r);
-            }
-        }
-
-        println!("\n--- OVERALL FAILURE TEST SUMMARY ---");
+        println!("\n--- FAILURE TEST SUMMARY ---");
         let total = results.len();
         let both_rejected = results
             .iter()

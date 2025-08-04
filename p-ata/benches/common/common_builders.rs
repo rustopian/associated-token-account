@@ -812,8 +812,7 @@ impl CommonTestCaseBuilder {
         bump: u8,
     ) -> Instruction {
         let metas = Self::build_metas(config, variant, accounts);
-        let data =
-            Self::build_instruction_data(config, variant, ata_implementation, accounts, bump);
+        let data = Self::build_instruction_data(config, variant, ata_implementation, bump);
 
         Instruction {
             program_id: ata_implementation.program_id,
@@ -915,7 +914,6 @@ impl CommonTestCaseBuilder {
         config: &TestCaseConfig,
         variant: TestVariant,
         ata_implementation: &AtaImplementation,
-        accounts: &[(Pubkey, Account)],
         bump: u8,
     ) -> Vec<u8> {
         if config.instruction_discriminator <= 1 {

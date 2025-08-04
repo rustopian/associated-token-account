@@ -70,9 +70,6 @@ impl StandardAccountSet {
     ///
     /// Used for CreateIdempotent tests where the ATA already exists.
     ///
-    /// **Call-order requirement**: invoke this *before* any other `with_*` helper that also
-    /// mutates the ATA (e.g. `with_topup_ata`).
-    ///
     /// # Panics
     /// Panics if the ATA has already been initialized – i.e. when its owner is no longer the
     /// system program or its data buffer is non-empty – which would indicate that another
@@ -100,9 +97,6 @@ impl StandardAccountSet {
     /// Configure the ATA as a top-up account (has some lamports but not rent-exempt).
     ///
     /// Used for create-prefunded-account tests.
-    ///
-    /// **Call-order requirement**: must be invoked before any helper that converts the ATA into a
-    /// fully-initialized token account (e.g. `with_existing_ata`).
     ///
     /// # Panics
     /// Panics if the ATA has already been initialized or given a non-zero balance.
@@ -272,8 +266,8 @@ impl RecoverAccountSet {
             threshold,
             signers.len()
         );
-        for (i, signer) in signers.iter().enumerate() {
-            debug_log!("    Signer {}: {}", i, signer);
+        for (_i, _signer) in signers.iter().enumerate() {
+            debug_log!("    Signer {}: {}", _i, _signer);
         }
 
         // Replace wallet with multisig account
