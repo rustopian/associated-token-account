@@ -62,7 +62,6 @@ pub enum SpecialAccountMod {
 }
 
 /// Failure modes for deliberate test failures
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum FailureMode {
     /// Payer owned by wrong program (not system program)
@@ -134,7 +133,6 @@ pub struct CommonTestCaseBuilder;
 
 impl CommonTestCaseBuilder {
     /// Main entry point
-    #[allow(dead_code)]
     pub fn build_test_case(
         base_test: BaseTestType,
         variant: TestVariant,
@@ -146,7 +144,6 @@ impl CommonTestCaseBuilder {
     }
 
     /// Build test case with specific iteration for random wallet generation
-    #[allow(dead_code)]
     pub fn build_test_case_with_iteration(
         base_test: BaseTestType,
         variant: TestVariant,
@@ -169,7 +166,6 @@ impl CommonTestCaseBuilder {
     }
 
     /// Build a failure test case with the specified failure mode
-    #[allow(dead_code)]
     pub fn build_failure_test_case(
         base_test: BaseTestType,
         variant: TestVariant,
@@ -183,7 +179,6 @@ impl CommonTestCaseBuilder {
     }
 
     /// Build a failure test case with the specified failure mode and test name
-    #[allow(dead_code)]
     pub fn build_failure_test_case_with_name(
         base_test: BaseTestType,
         variant: TestVariant,
@@ -1008,7 +1003,6 @@ impl CommonTestCaseBuilder {
     }
 
     /// Helper for setting wrong account owners
-    #[allow(dead_code)]
     fn apply_wrong_owner_failures(
         accounts: &mut Vec<(Pubkey, Account)>,
         failures: &[(Pubkey, Pubkey)],
@@ -1342,7 +1336,6 @@ pub fn calculate_test_number(
 }
 
 /// Calculate test number for failure scenarios with collision avoidance
-#[allow(dead_code)]
 pub fn calculate_failure_test_number(base_test: BaseTestType, variant: TestVariant) -> u8 {
     use std::sync::atomic::{AtomicU8, Ordering};
     static FAILURE_COUNTER: AtomicU8 = AtomicU8::new(0);

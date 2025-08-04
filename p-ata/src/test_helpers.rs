@@ -19,22 +19,19 @@ pub mod address_gen {
         Mint = 1,
         Wallet = 2,
         Ata = 3,
-        SystemProgram = 4,
-        TokenProgram = 5,
-        RentSysvar = 6,
-        OwnerMint = 7,
-        NestedMint = 8,
-        OwnerAta = 9,
-        NestedAta = 10,
-        Signer1 = 11,
-        Signer2 = 12,
-        Signer3 = 13,
+        OwnerMint = 4,
+        NestedMint = 5,
+        OwnerAta = 6,
+        NestedAta = 7,
+        Signer1 = 8,
+        Signer2 = 9,
+        Signer3 = 10,
     }
 
     /// Generate a structured pubkey from 4-byte coordinate system
     /// [variant, test_bank, test_number, account_type].
-    /// Avoids some issues with test cross-contamination by using predictable
-    /// addresses that avoid collisions.
+    /// Avoids some issues with test cross-contamination while keeping
+    /// test addresses deterministic.
     pub fn structured_pk(
         variant: &AtaVariant,
         test_bank: TestBankId,
@@ -64,7 +61,6 @@ pub mod address_gen {
             AccountTypeId::Signer1 => 0x09,
             AccountTypeId::Signer2 => 0x0A,
             AccountTypeId::Signer3 => 0x0B,
-            _ => panic!("Attempting to create key for known program ID"),
         };
 
         let mut bytes = [0u8; 32];
@@ -138,17 +134,5 @@ pub mod address_gen {
         hasher.hashv(&[program_id.as_ref(), PDA_MARKER]);
         let hash = hasher.result();
         Pubkey::new_from_array(hash.to_bytes())
-    }
-
-    /// Macro for structured pubkey array generation
-    #[macro_export]
-    macro_rules! pk_array {
-        ($variant:expr, $test_bank:expr, $test_number:expr, [$($account_type:expr),+]) => {
-            [$(
-                $crate::test_helpers::address_gen::structured_pk(
-                    $variant, $test_bank, $test_number, $account_type
-                )
-            ),+]
-        };
     }
 }

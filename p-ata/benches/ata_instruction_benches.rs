@@ -494,7 +494,6 @@ impl PerformanceTestOrchestrator {
 
 // ================================= MAIN =====================================
 
-#[allow(dead_code)]
 fn main() {
     // Get number of iterations from environment or arguments
     let iterations = get_iterations();

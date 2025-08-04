@@ -88,7 +88,6 @@ impl BenchmarkSetup {
         deploy_dir
     }
 
-    #[allow(dead_code)]
     /// Validate that the benchmark setup works with a simple test
     pub fn validate_setup(
         mollusk: &Mollusk,
@@ -153,7 +152,6 @@ impl BenchmarkSetup {
 
 // ========================== SHARED COMPARISON FRAMEWORK ============================
 
-#[allow(dead_code)]
 #[derive(Debug, PartialEq, Clone)]
 pub enum CompatibilityStatus {
     /// Both implementations succeeded and produced byte-for-byte identical results.
@@ -180,7 +178,6 @@ pub enum CompatibilityStatus {
     IncompatibleSuccess, // One succeeded, one failed unexpectedly
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct BenchmarkResult {
     pub implementation: String,
@@ -558,7 +555,6 @@ impl BenchmarkRunner {
     }
 
     /// Print individual comparison result
-    #[allow(dead_code)]
     pub fn print_comparison_result(result: &ComparisonResult) {
         println!("\n--- {} ---", result.test_name);
 
@@ -651,7 +647,6 @@ impl BenchmarkRunner {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter, Display)]
 #[strum(serialize_all = "snake_case")]
-#[allow(dead_code)]
 pub enum BaseTestType {
     Create,
     CreateIdempotent,
@@ -671,7 +666,6 @@ pub struct TestVariant {
     pub token_account_len_arg: bool,
 }
 
-#[allow(dead_code)]
 impl TestVariant {
     pub const BASE: Self = Self {
         rent_arg: false,
@@ -738,7 +732,6 @@ impl TestVariant {
 
 impl BaseTestType {
     /// Returns which P-ATA variant this test should use
-    #[allow(dead_code)]
     pub fn required_pata_variant(&self) -> AtaVariant {
         match self {
             Self::CreateTopup => AtaVariant::PAtaPrefunded, // Uses create-prefunded-account feature

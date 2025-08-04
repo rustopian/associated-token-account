@@ -131,11 +131,7 @@ pub mod unified_builders {
     use super::shared_constants::*;
     use std::{vec, vec::Vec};
 
-    pub fn create_token_account_data_unified(
-        mint: &[u8; 32],
-        owner: &[u8; 32],
-        amount: u64,
-    ) -> Vec<u8> {
+    pub fn create_token_account_data(mint: &[u8; 32], owner: &[u8; 32], amount: u64) -> Vec<u8> {
         let mut data = vec![0u8; TOKEN_ACCOUNT_SIZE];
 
         // mint
@@ -574,33 +570,10 @@ pub fn build_create_ata_instruction(
     }
 }
 
-/// Create valid token account data for mollusk testing (solana SDK compatible)
-#[cfg(any(test, feature = "std"))]
-pub fn create_mollusk_token_account_data(
-    mint: &SolanaPubkey,
-    owner: &SolanaPubkey,
-    amount: u64,
-) -> Vec<u8> {
-    unified_builders::create_token_account_data_unified(
-        mint.as_ref().try_into().expect("Pubkey is 32 bytes"),
-        owner.as_ref().try_into().expect("Pubkey is 32 bytes"),
-        amount,
-    )
-}
-
 /// Create mint account data for mollusk testing
 #[cfg(any(test, feature = "std"))]
 pub fn create_mollusk_mint_data(decimals: u8) -> Vec<u8> {
     unified_builders::create_mint_data(decimals)
-}
-
-/// Create valid token account data for testing
-pub fn create_token_account_data(mint: &Pubkey, owner: &Pubkey, amount: u64) -> Vec<u8> {
-    unified_builders::create_token_account_data_unified(
-        mint.as_ref().try_into().expect("Pubkey is 32 bytes"),
-        owner.as_ref().try_into().expect("Pubkey is 32 bytes"),
-        amount,
-    )
 }
 
 /// Create valid multisig data for testing
@@ -798,13 +771,10 @@ pub fn create_ata_test_accounts(
 
 pub mod account_builder {
     use {
-        super::{create_mollusk_mint_data, create_mollusk_token_account_data},
-        mollusk_svm::Mollusk,
-        solana_account::Account,
-        solana_pubkey::Pubkey as SolanaPubkey,
-        solana_sysvar::rent,
-        std::vec,
-        std::vec::Vec,
+        super::create_mollusk_mint_data,
+        crate::test_utils::unified_builders::create_token_account_data, mollusk_svm::Mollusk,
+        solana_account::Account, solana_pubkey::Pubkey as SolanaPubkey, solana_sysvar::rent,
+        std::vec, std::vec::Vec,
     };
 
     pub struct AccountBuilder;
@@ -990,7 +960,7 @@ pub mod account_builder {
         ) -> Account {
             Account {
                 lamports: TOKEN_ACCOUNT_RENT_EXEMPT,
-                data: create_mollusk_token_account_data(mint, owner, amount),
+                data: create_token_account_data(&mint.to_bytes(), &owner.to_bytes(), amount),
                 owner: *token_program,
                 executable: false,
                 rent_epoch: 0,
@@ -1001,6 +971,8 @@ pub mod account_builder {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_utils::unified_builders::create_token_account_data;
+
     use super::*;
 
     #[test]
@@ -1118,7 +1090,7 @@ mod tests {
         // Test mollusk token account data
         let mint = SolanaPubkey::new_unique();
         let owner = SolanaPubkey::new_unique();
-        let data = create_mollusk_token_account_data(&mint, &owner, 1000);
+        let data = create_token_account_data(&mint.to_bytes(), &owner.to_bytes(), 1000);
         assert_eq!(data.len(), shared_constants::TOKEN_ACCOUNT_SIZE);
         assert_eq!(&data[0..32], mint.as_ref());
         assert_eq!(&data[32..64], owner.as_ref());

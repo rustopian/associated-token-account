@@ -1000,7 +1000,6 @@ impl FailureTestBuilder {
     /// that the lamport transfer occurred as expected (if the exploit succeeded).
     ///
     /// Returns (victim_final_balance, attacker_final_balance, transfer_occurred)
-    #[allow(dead_code)]
     fn verify_drain_lamports_exploit_result(
         pre_execution_accounts: &[(Pubkey, Account)],
         post_execution_accounts: &[(Pubkey, Account)],
@@ -1585,7 +1584,6 @@ impl FailureTestRunner {
 
 // ================================ MAIN FUNCTION ================================
 
-#[allow(dead_code)]
 fn main() {
     // Completely suppress debug output from Mollusk and Solana runtime
     std::env::set_var("RUST_LOG", "error");

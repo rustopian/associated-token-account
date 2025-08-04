@@ -23,7 +23,7 @@ use {
     std::{collections::BTreeMap, vec::Vec},
 };
 
-#[allow(dead_code, clippy::all, unsafe_code)]
+#[allow(clippy::all, unsafe_code)]
 // Bridge between solana_program_test and pinocchio-based p-ata program.
 // `unsafe` assumes identical memory layouts of AccountInfo types.
 fn process_instruction(
@@ -53,7 +53,6 @@ fn process_instruction(
         })
 }
 
-#[allow(dead_code)]
 fn id() -> Pubkey {
     spl_associated_token_account::id()
 }
@@ -217,7 +216,6 @@ pub struct MolluskProgramTestContext {
 
 // Type aliases to make Mollusk types compatible with existing tests
 pub type ProgramTestContext = MolluskProgramTestContext;
-#[allow(dead_code)]
 pub type BanksClient = MolluskBanksClient;
 
 /// Mollusk-based program test that matches the original API
