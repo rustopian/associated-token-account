@@ -1,20 +1,11 @@
-//! Test utilities and helpers, available when std feature is enabled.
-//!
 //! This module provides shared utilities that are used by both integration tests
-//! and benchmarks. It's only compiled when the `std` feature is enabled.
+//! and benchmarks.
 use {solana_pubkey::Pubkey, std::vec::Vec};
 
-// Re-export address generation utilities
 pub mod address_gen {
-    use super::*;
+    use crate::test_utils::AtaVariant;
 
-    // Define simplified types for address generation (used by integration tests)
-    #[derive(Clone, Copy)]
-    pub enum AtaVariant {
-        SplAta,
-        PAtaLegacy,
-        PAtaPrefunded,
-    }
+    use super::*;
 
     #[derive(Clone, Copy)]
     pub enum TestBankId {
@@ -24,14 +15,20 @@ pub mod address_gen {
 
     #[derive(Clone, Copy, PartialEq)]
     pub enum AccountTypeId {
-        Payer,
-        Wallet,
-        Mint,
-        OwnerMint,
-        NestedMint,
-        Ata,
-        NestedAta,
-        OwnerAta,
+        Payer = 0,
+        Mint = 1,
+        Wallet = 2,
+        Ata = 3,
+        SystemProgram = 4,
+        TokenProgram = 5,
+        RentSysvar = 6,
+        OwnerMint = 7,
+        NestedMint = 8,
+        OwnerAta = 9,
+        NestedAta = 10,
+        Signer1 = 11,
+        Signer2 = 12,
+        Signer3 = 13,
     }
 
     /// Generate a structured pubkey from 4-byte coordinate system
@@ -39,7 +36,7 @@ pub mod address_gen {
     /// Avoids some issues with test cross-contamination by using predictable
     /// addresses that avoid collisions.
     pub fn structured_pk(
-        variant: AtaVariant,
+        variant: &AtaVariant,
         test_bank: TestBankId,
         test_number: u8,
         account_type: AccountTypeId,
@@ -64,6 +61,10 @@ pub mod address_gen {
             AccountTypeId::Ata => 0x06,
             AccountTypeId::NestedAta => 0x07,
             AccountTypeId::OwnerAta => 0x08,
+            AccountTypeId::Signer1 => 0x09,
+            AccountTypeId::Signer2 => 0x0A,
+            AccountTypeId::Signer3 => 0x0B,
+            _ => panic!("Attempting to create key for known program ID"),
         };
 
         let mut bytes = [0u8; 32];
@@ -84,7 +85,7 @@ pub mod address_gen {
 
     /// Generate multiple structured pubkeys
     pub fn structured_pk_multi(
-        variant: AtaVariant,
+        variant: &AtaVariant,
         test_bank: TestBankId,
         test_number: u8,
         account_types: &[AccountTypeId],
@@ -97,7 +98,7 @@ pub mod address_gen {
 
     /// Generate a random seeded pubkey for testing with multiple entropy sources
     pub fn random_seeded_pk(
-        variant: AtaVariant,
+        variant: &AtaVariant,
         test_bank: TestBankId,
         test_number: u8,
         account_type: AccountTypeId,
@@ -120,6 +121,23 @@ pub mod address_gen {
         }
 
         Pubkey::new_from_array(bytes)
+    }
+
+    /// Derive a PDA with a specific bump
+    pub fn derive_address_with_bump(seeds: &[&[u8]], bump: u8, program_id: &Pubkey) -> Pubkey {
+        const PDA_MARKER: &[u8; 21] = b"ProgramDerivedAddress";
+
+        // create_program_address, but without off-curve validation
+        let mut full_seeds = seeds.to_vec();
+        let bump_bytes = [bump];
+        full_seeds.push(&bump_bytes);
+        let mut hasher = solana_sha256_hasher::Hasher::default();
+        for seed in full_seeds.iter() {
+            hasher.hash(seed);
+        }
+        hasher.hashv(&[program_id.as_ref(), PDA_MARKER]);
+        let hash = hasher.result();
+        Pubkey::new_from_array(hash.to_bytes())
     }
 
     /// Macro for structured pubkey array generation

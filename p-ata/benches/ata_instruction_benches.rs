@@ -6,7 +6,7 @@ use {
     // Shared benchmark modules (imported via bench_support::* which re-exports common)
     common::{
         BaseTestType, BenchmarkResult, BenchmarkRunner, ComparisonResult, CompatibilityStatus,
-        TestBankId, TestVariant,
+        TestVariant,
     },
     common_builders::CommonTestCaseBuilder,
     constants::*,

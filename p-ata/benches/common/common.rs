@@ -3,8 +3,12 @@
 use {
     crate::account_templates::StandardAccountSet,
     mollusk_svm::Mollusk,
-    pinocchio_ata_program::test_utils::{
-        setup_mollusk_unified, AtaImplementation, AtaVariant, MolluskAtaSetup, MolluskTokenSetup,
+    pinocchio_ata_program::{
+        test_helpers::address_gen::{random_seeded_pk, structured_pk, AccountTypeId, TestBankId},
+        test_utils::{
+            setup_mollusk_unified, AtaImplementation, AtaVariant, MolluskAtaSetup,
+            MolluskTokenSetup,
+        },
     },
     solana_account::Account,
     solana_instruction,
@@ -17,33 +21,6 @@ use {
     },
     strum::{Display, EnumIter},
 };
-
-/// Test bank identifier  
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TestBankId {
-    Benchmarks = 0,
-    Failures = 1,
-}
-
-/// Account type identifier
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
-pub enum AccountTypeId {
-    Payer = 0,
-    Mint = 1,
-    Wallet = 2,
-    Ata = 3,
-    SystemProgram = 4,
-    TokenProgram = 5,
-    RentSysvar = 6,
-    OwnerMint = 7,
-    NestedMint = 8,
-    OwnerAta = 9,
-    NestedAta = 10,
-    Signer1 = 11,
-    Signer2 = 12,
-    Signer3 = 13,
-}
 
 // ========================== SHARED BENCHMARK SETUP ============================
 
@@ -771,83 +748,7 @@ impl BaseTestType {
     }
 }
 
-// ========================== ADDRESS GENERATION FUNCTIONS ============================
-
-/// Generate a structured pubkey from 4-byte coordinate system
-pub fn structured_pk(
-    variant: &AtaVariant,
-    test_bank: TestBankId,
-    test_number: u8,
-    account_type: AccountTypeId,
-) -> Pubkey {
-    let variant_byte = match variant {
-        AtaVariant::SplAta => 0x01,
-        AtaVariant::PAtaLegacy => 0x02,
-        AtaVariant::PAtaPrefunded => 0x03,
-    };
-
-    let test_bank_byte = match test_bank {
-        TestBankId::Benchmarks => 0x10,
-        TestBankId::Failures => 0x20,
-    };
-
-    let account_type_byte = account_type as u8;
-
-    let mut bytes = [0u8; 32];
-    bytes[0] = variant_byte;
-    bytes[1] = test_bank_byte;
-    bytes[2] = test_number;
-    bytes[3] = account_type_byte;
-
-    // Fill the rest with a pattern to make it deterministic
-    for i in 4..32 {
-        bytes[i] = (i as u8)
-            .wrapping_mul(variant_byte)
-            .wrapping_add(test_number);
-    }
-
-    Pubkey::new_from_array(bytes)
-}
-
-/// Generate multiple structured pubkeys
-pub fn structured_pk_multi(
-    variant: AtaVariant,
-    test_bank: TestBankId,
-    test_number: u8,
-    account_types: &[AccountTypeId],
-) -> Vec<Pubkey> {
-    account_types
-        .iter()
-        .map(|&account_type| structured_pk(&variant, test_bank, test_number, account_type))
-        .collect()
-}
-
-/// Generate a random seeded pubkey for testing with multiple entropy sources
-pub fn random_seeded_pk(
-    variant: &AtaVariant,
-    test_bank: TestBankId,
-    test_number: u8,
-    account_type: AccountTypeId,
-    fixed_seed: u64,
-    entropy: u64,
-) -> Pubkey {
-    // Start with structured pubkey as base
-    let base = structured_pk(variant, test_bank, test_number, account_type);
-    let mut bytes = base.to_bytes();
-
-    // Mix in the entropy sources
-    let fixed_seed_bytes = fixed_seed.to_le_bytes();
-    let entropy_bytes = entropy.to_le_bytes();
-
-    // XOR with entropy to randomize while keeping deterministic
-    for i in 0..32 {
-        bytes[i] ^= fixed_seed_bytes[i % 8];
-        bytes[i] ^= entropy_bytes[i % 8];
-        bytes[i] = bytes[i].wrapping_add((i as u8).wrapping_mul(test_number));
-    }
-
-    Pubkey::new_from_array(bytes)
-}
+// ========================== OPTIMIZATION FUNCTIONS ============================
 
 /// Generate random signers and find optimal multisig wallet for nested ATA operations
 pub fn find_optimal_multisig_for_nested_ata(
@@ -1143,9 +1044,4 @@ pub fn find_optimal_wallet_for_mints(
         search_entropy,
         search_entropy.wrapping_mul(47),
     )
-}
-
-pub fn derive_address_with_bump(_seeds: &[&[u8]], _bump: u8, _program_id: &Pubkey) -> Pubkey {
-    // TODO: Implement the actual logic or remove if not needed
-    Pubkey::new_unique()
 }

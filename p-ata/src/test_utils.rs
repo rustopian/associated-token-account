@@ -809,6 +809,8 @@ pub mod account_builder {
 
     pub struct AccountBuilder;
 
+    use super::shared_constants::*;
+
     impl AccountBuilder {
         pub fn rent_sysvar() -> Account {
             let mollusk = Mollusk::default();
@@ -845,7 +847,7 @@ pub mod account_builder {
 
         pub fn mint(decimals: u8, _mint_authority: &SolanaPubkey) -> Account {
             Account {
-                lamports: 0,
+                lamports: MINT_ACCOUNT_RENT_EXEMPT,
                 data: create_mollusk_mint_data(decimals),
                 owner: spl_token_interface::program::id().into(),
                 executable: false,
@@ -879,7 +881,7 @@ pub mod account_builder {
             mint.base.freeze_authority = COption::None.into();
 
             Account {
-                lamports: 0,
+                lamports: MINT_ACCOUNT_RENT_EXEMPT,
                 data,
                 owner: spl_token_2022::id(),
                 executable: false,
@@ -972,7 +974,7 @@ pub mod account_builder {
                 .expect("Failed to init account type");
 
             Account {
-                lamports: 0,
+                lamports: MINT_ACCOUNT_RENT_EXEMPT,
                 data,
                 owner: spl_token_2022::id(),
                 executable: false,
@@ -987,7 +989,7 @@ pub mod account_builder {
             token_program: &SolanaPubkey,
         ) -> Account {
             Account {
-                lamports: 0,
+                lamports: TOKEN_ACCOUNT_RENT_EXEMPT,
                 data: create_mollusk_token_account_data(mint, owner, amount),
                 owner: *token_program,
                 executable: false,

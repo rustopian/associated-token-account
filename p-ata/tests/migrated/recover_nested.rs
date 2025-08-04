@@ -15,7 +15,7 @@ use {
     std::vec::Vec,
 };
 
-use super::super::utils::account_builder::AccountBuilder;
+use pinocchio_ata_program::test_utils::account_builder::AccountBuilder;
 
 /// Common test variables setup
 struct TestContext {

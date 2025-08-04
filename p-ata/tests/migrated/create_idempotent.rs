@@ -2,11 +2,10 @@
 #![cfg(test)]
 
 use {
-    super::super::utils::account_builder::AccountBuilder,
     mollusk_svm::result::{Check, ProgramResult},
     pinocchio_ata_program::test_utils::{
-        build_create_ata_instruction, create_test_mint, setup_mollusk_with_programs,
-        CreateAtaInstructionType,
+        account_builder::AccountBuilder, build_create_ata_instruction, create_test_mint,
+        setup_mollusk_with_programs, CreateAtaInstructionType,
     },
     solana_instruction::AccountMeta,
     solana_program::program_error::ProgramError,

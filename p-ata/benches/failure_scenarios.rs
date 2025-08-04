@@ -5,14 +5,16 @@ use pinocchio_ata_program::test_utils::{load_program_ids, AtaImplementation, Ata
 use {
     account_templates::FailureAccountBuilder,
     common::{
-        random_seeded_pk, structured_pk, structured_pk_multi, AccountTypeId, BaseTestType,
-        BenchmarkResult, BenchmarkRunner, BenchmarkSetup, ComparisonResult, CompatibilityStatus,
-        TestBankId, TestVariant,
+        BaseTestType, BenchmarkResult, BenchmarkRunner, BenchmarkSetup, ComparisonResult,
+        CompatibilityStatus, TestVariant,
     },
     common_builders::{CommonTestCaseBuilder, FailureMode},
     constants::account_sizes,
     pinocchio_ata_program::{
         debug_log,
+        test_helpers::address_gen::{
+            random_seeded_pk, structured_pk, structured_pk_multi, AccountTypeId, TestBankId,
+        },
         test_utils::{account_builder::AccountBuilder, shared_constants::NATIVE_LOADER_ID},
     },
     solana_account::Account,
@@ -337,18 +339,18 @@ fn build_base_failure_accounts(
 
     let payer = structured_pk(
         &ata_implementation.variant,
-        common::TestBankId::Failures,
+        TestBankId::Failures,
         test_number,
-        common::AccountTypeId::Payer,
+        AccountTypeId::Payer,
     );
 
     // Use consistent variant for mint and wallet to enable byte-for-byte comparison
     let consistent_variant = &AtaVariant::SplAta;
     let mint = structured_pk(
         consistent_variant,
-        common::TestBankId::Failures,
+        TestBankId::Failures,
         test_number,
-        common::AccountTypeId::Mint,
+        AccountTypeId::Mint,
     );
     // Use random seeded pubkey instead of optimal bump hunting
     // Fixed seed ensures consistency across implementations for fair comparison
@@ -358,9 +360,9 @@ fn build_base_failure_accounts(
         .as_nanos() as u64;
     let wallet = random_seeded_pk(
         consistent_variant,
-        common::TestBankId::Failures,
+        TestBankId::Failures,
         test_number,
-        common::AccountTypeId::Wallet,
+        AccountTypeId::Wallet,
         42, // Fixed seed ensures consistency across implementations
         simple_entropy,
     );
@@ -388,7 +390,7 @@ impl RecoverNestedAccounts {
             TestVariant::BASE,
         );
         let pubkeys = structured_pk_multi(
-            ata_impl.variant,
+            &ata_impl.variant,
             TestBankId::Failures,
             test_number,
             &[
@@ -494,9 +496,9 @@ impl FailureTestBuilder {
     ) -> (Instruction, Vec<(Pubkey, Account)>) {
         let wrong_ata_address = structured_pk(
             &ata_impl.variant,
-            common::TestBankId::Failures,
+            TestBankId::Failures,
             173,
-            common::AccountTypeId::Ata,
+            AccountTypeId::Ata,
         );
 
         CommonTestCaseBuilder::build_failure_test_case_with_name(
@@ -585,9 +587,9 @@ impl FailureTestBuilder {
                 // Overwrite the nested_ata with a new, different key to force a mismatch.
                 accs.nested_ata = structured_pk(
                     &ata_impl.variant,
-                    common::TestBankId::Failures,
+                    TestBankId::Failures,
                     test_number.wrapping_add(10), // Use a distinct offset to guarantee a different address
-                    common::AccountTypeId::NestedAta,
+                    AccountTypeId::NestedAta,
                 );
             },
         )
@@ -610,9 +612,9 @@ impl FailureTestBuilder {
                 // Overwrite the dest_ata with a new, different key to force a mismatch.
                 accs.dest_ata = structured_pk(
                     &ata_impl.variant,
-                    common::TestBankId::Failures,
+                    TestBankId::Failures,
                     test_number.wrapping_add(11), // Use a distinct offset to guarantee a different address
-                    common::AccountTypeId::Ata,
+                    AccountTypeId::Ata,
                 );
             },
         )
@@ -707,9 +709,9 @@ impl FailureTestBuilder {
                 );
                 let wrong_mint = structured_pk(
                     &ata_impl.variant,
-                    common::TestBankId::Failures,
+                    TestBankId::Failures,
                     test_number.wrapping_add(10),
-                    common::AccountTypeId::Mint,
+                    AccountTypeId::Mint,
                 );
 
                 // Replace ATA with one pointing to wrong mint
@@ -740,9 +742,9 @@ impl FailureTestBuilder {
                 );
                 let wrong_owner = structured_pk(
                     &ata_impl.variant,
-                    common::TestBankId::Failures,
+                    TestBankId::Failures,
                     test_number.wrapping_add(11),
-                    common::AccountTypeId::Wallet,
+                    AccountTypeId::Wallet,
                 );
 
                 // Replace ATA with one having wrong owner
@@ -890,17 +892,12 @@ impl FailureTestBuilder {
 
         // Generate attacker, victim wallet, and victim mint efficiently
         let [attacker_wallet, victim_wallet, victim_mint] = [
-            (test_number, common::AccountTypeId::Payer),
-            (test_number.wrapping_add(10), common::AccountTypeId::Wallet),
-            (test_number.wrapping_add(1), common::AccountTypeId::Mint),
+            (test_number, AccountTypeId::Payer),
+            (test_number.wrapping_add(10), AccountTypeId::Wallet),
+            (test_number.wrapping_add(1), AccountTypeId::Mint),
         ]
         .map(|(num, account_type)| {
-            structured_pk(
-                &ata_impl.variant,
-                common::TestBankId::Failures,
-                num,
-                account_type,
-            )
+            structured_pk(&ata_impl.variant, TestBankId::Failures, num, account_type)
         });
 
         // Victim's ATA - properly derived PDA from victim's wallet and mint

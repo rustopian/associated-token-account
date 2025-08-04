@@ -69,7 +69,7 @@ fn test_rejects_suboptimal_bump() {
         (254u8, 250u8),
     ];
 
-    let mollusk = setup_mollusk_for_bump_tests(&token_program_id);
+    let mollusk = setup_mollusk_for_bump_tests(&token_program_id.to_bytes());
 
     let mut wallet_infos = Vec::new();
     for &(canonical, sub) in &pairs {

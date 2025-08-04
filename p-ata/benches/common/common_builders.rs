@@ -6,12 +6,14 @@ use {
     crate::{
         account_templates::*,
         common::{
-            derive_address_with_bump, find_optimal_multisig_for_nested_ata,
-            find_optimal_wallet_for_mints, find_optimal_wallet_for_nested_ata, random_seeded_pk,
-            structured_pk, structured_pk_multi, AccountTypeId, BaseTestType, TestBankId,
-            TestVariant, *,
+            find_optimal_multisig_for_nested_ata, find_optimal_wallet_for_mints,
+            find_optimal_wallet_for_nested_ata, BaseTestType, TestVariant, *,
         },
         constants::*,
+    },
+    pinocchio_ata_program::test_helpers::address_gen::{
+        derive_address_with_bump, random_seeded_pk, structured_pk, structured_pk_multi,
+        AccountTypeId, TestBankId,
     },
     pinocchio_ata_program::test_utils::account_builder::AccountBuilder,
     solana_account::Account,
@@ -237,15 +239,15 @@ impl CommonTestCaseBuilder {
                 config.special_account_mods = vec![SpecialAccountMod::NestedAta {
                     owner_mint: structured_pk(
                         &AtaVariant::PAtaLegacy,
-                        crate::common::TestBankId::Benchmarks,
+                        TestBankId::Benchmarks,
                         base_test as u8,
-                        crate::common::AccountTypeId::OwnerMint,
+                        AccountTypeId::OwnerMint,
                     ),
                     nested_mint: structured_pk(
                         &AtaVariant::PAtaLegacy,
-                        crate::common::TestBankId::Benchmarks,
+                        TestBankId::Benchmarks,
                         base_test as u8,
-                        crate::common::AccountTypeId::NestedMint,
+                        AccountTypeId::NestedMint,
                     ),
                 }];
                 config
@@ -257,15 +259,15 @@ impl CommonTestCaseBuilder {
                     SpecialAccountMod::NestedAta {
                         owner_mint: structured_pk(
                             &AtaVariant::PAtaLegacy,
-                            crate::common::TestBankId::Benchmarks,
+                            TestBankId::Benchmarks,
                             base_test as u8,
-                            crate::common::AccountTypeId::OwnerMint,
+                            AccountTypeId::OwnerMint,
                         ),
                         nested_mint: structured_pk(
                             &AtaVariant::PAtaLegacy,
-                            crate::common::TestBankId::Benchmarks,
+                            TestBankId::Benchmarks,
                             base_test as u8,
-                            crate::common::AccountTypeId::NestedMint,
+                            AccountTypeId::NestedMint,
                         ),
                     },
                     SpecialAccountMod::MultisigWallet {
@@ -360,9 +362,9 @@ impl CommonTestCaseBuilder {
     ) -> (Instruction, Vec<(Pubkey, Account)>) {
         // Use structured addressing to prevent cross-contamination
         let test_bank = if config.failure_mode.is_some() {
-            crate::common::TestBankId::Failures
+            TestBankId::Failures
         } else {
-            crate::common::TestBankId::Benchmarks
+            TestBankId::Benchmarks
         };
         // For address generation, always use the actual variant for test number calculation
         // This ensures P-ATA and SPL ATA use the same test number for the same variant,
@@ -593,7 +595,7 @@ impl CommonTestCaseBuilder {
 
     fn get_structured_addresses(
         config: &TestCaseConfig,
-        test_bank: crate::common::TestBankId,
+        test_bank: TestBankId,
         test_number: u8,
         iteration: usize,
         run_entropy: u64,
@@ -620,14 +622,14 @@ impl CommonTestCaseBuilder {
             consistent_variant,
             test_bank,
             test_number,
-            crate::common::AccountTypeId::Payer,
+            AccountTypeId::Payer,
         );
 
         let mint = structured_pk(
             consistent_variant,
             test_bank,
             test_number,
-            crate::common::AccountTypeId::Mint,
+            AccountTypeId::Mint,
         );
         let wallet = if matches!(
             config.base_test,
@@ -654,7 +656,7 @@ impl CommonTestCaseBuilder {
                 consistent_variant,
                 test_bank,
                 test_number,
-                crate::common::AccountTypeId::Wallet,
+                AccountTypeId::Wallet,
                 iteration as u64,
                 run_entropy,
             )
@@ -663,7 +665,7 @@ impl CommonTestCaseBuilder {
                 consistent_variant,
                 test_bank,
                 test_number,
-                crate::common::AccountTypeId::Wallet,
+                AccountTypeId::Wallet,
             )
         } else {
             // Use random seeded pubkey for standard tests - optimal bump logic will be added later
@@ -671,7 +673,7 @@ impl CommonTestCaseBuilder {
                 consistent_variant,
                 test_bank,
                 test_number,
-                crate::common::AccountTypeId::Wallet,
+                AccountTypeId::Wallet,
                 iteration as u64,
                 run_entropy,
             )
