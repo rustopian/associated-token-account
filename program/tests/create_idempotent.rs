@@ -1,12 +1,13 @@
-mod program_test;
+mod utils;
 
 use {
     program_test::program_test_2022,
-    solana_program::instruction::*,
+    solana_program::{instruction::*, pubkey::Pubkey},
     solana_program_test::*,
     solana_pubkey::Pubkey,
     solana_sdk::{
         account::Account as SolanaAccount,
+        program_error::ProgramError,
         program_option::COption,
         program_pack::Pack,
         signature::Signer,
@@ -26,6 +27,7 @@ use {
         instruction::initialize_account,
         state::{Account, AccountState},
     },
+    utils::*,
 };
 
 #[tokio::test]
@@ -38,19 +40,31 @@ async fn success_account_exists() {
         &spl_token_2022_interface::id(),
     );
 
-    let (mut banks_client, payer, recent_blockhash) =
-        program_test_2022(token_mint_address).start().await;
-    let rent = banks_client.get_rent().await.unwrap();
+    let mollusk = setup_mollusk_with_programs(&spl_token_2022_interface::id());
+    let payer = Keypair::new();
+    let mut accounts =
+        create_mollusk_base_accounts_with_token(&payer, &spl_token_2022_interface::id());
+    accounts.extend([
+        (
+            token_mint_address,
+            account_builder::AccountBuilder::extended_mint(6, &payer.pubkey()),
+        ),
+        (
+            wallet_address,
+            account_builder::AccountBuilder::system_account(1_000_000),
+        ),
+    ]);
     let expected_token_account_len =
         ExtensionType::try_calculate_account_len::<Account>(&[ExtensionType::ImmutableOwner])
             .unwrap();
-    let expected_token_account_balance = rent.minimum_balance(expected_token_account_len);
+    let expected_token_account_balance =
+        solana_sdk::rent::Rent::default().minimum_balance(expected_token_account_len);
 
     let instruction = create_associated_token_account_idempotent(
         &payer.pubkey(),
         &wallet_address,
         &token_mint_address,
-        &spl_token_2022_interface::id(),
+        &spl_token_2022::id(),
     );
 
     let transaction = Transaction::new_signed_with_payer(
@@ -59,14 +73,14 @@ async fn success_account_exists() {
         &[&payer],
         recent_blockhash,
     );
-    banks_client.process_transaction(transaction).await.unwrap();
-
-    // Associated account now exists
-    let associated_account = banks_client
-        .get_account(associated_token_address)
-        .await
-        .expect("get_account")
-        .expect("associated_account not none");
+    let result = mollusk.process_instruction(&instruction, &accounts);
+    assert!(result.program_result.is_ok());
+    let associated_account = result
+        .resulting_accounts
+        .into_iter()
+        .find(|(pubkey, _)| *pubkey == associated_token_address)
+        .expect("associated_account not none")
+        .1;
     assert_eq!(associated_account.data.len(), expected_token_account_len);
     assert_eq!(associated_account.owner, spl_token_2022_interface::id());
     assert_eq!(associated_account.lamports, expected_token_account_balance);
@@ -76,7 +90,7 @@ async fn success_account_exists() {
         &payer.pubkey(),
         &wallet_address,
         &token_mint_address,
-        &spl_token_2022_interface::id(),
+        &spl_token_2022::id(),
     );
 
     let transaction = Transaction::new_signed_with_payer(
@@ -86,12 +100,8 @@ async fn success_account_exists() {
         recent_blockhash,
     );
     assert_eq!(
-        banks_client
-            .process_transaction(transaction)
-            .await
-            .unwrap_err()
-            .unwrap(),
-        TransactionError::InstructionError(0, InstructionError::IllegalOwner)
+        result.program_result,
+        ProgramResult::Failure(ProgramError::IllegalOwner)
     );
 
     // Get a new blockhash, succeed with create if non existent
@@ -104,7 +114,7 @@ async fn success_account_exists() {
         &payer.pubkey(),
         &wallet_address,
         &token_mint_address,
-        &spl_token_2022_interface::id(),
+        &spl_token_2022::id(),
     );
 
     let transaction = Transaction::new_signed_with_payer(
@@ -113,14 +123,14 @@ async fn success_account_exists() {
         &[&payer],
         recent_blockhash,
     );
-    banks_client.process_transaction(transaction).await.unwrap();
-
-    // Associated account is unchanged
-    let associated_account = banks_client
-        .get_account(associated_token_address)
-        .await
-        .expect("get_account")
-        .expect("associated_account not none");
+    let result = mollusk.process_instruction(&instruction, &accounts);
+    assert!(result.program_result.is_ok());
+    let associated_account = result
+        .resulting_accounts
+        .into_iter()
+        .find(|(pubkey, _)| *pubkey == associated_token_address)
+        .expect("associated_account not none")
+        .1;
     assert_eq!(associated_account.data.len(), expected_token_account_len);
     assert_eq!(associated_account.owner, spl_token_2022_interface::id());
     assert_eq!(associated_account.lamports, expected_token_account_balance);
@@ -138,7 +148,7 @@ async fn fail_account_exists_with_wrong_owner() {
 
     let wrong_owner = Pubkey::new_unique();
     let mut associated_token_account =
-        SolanaAccount::new(1_000_000_000, Account::LEN, &spl_token_2022_interface::id());
+        SolanaAccount::new(1_000_000_000, Account::LEN, &spl_token_2022::id());
     let token_account = Account {
         mint: token_mint_address,
         owner: wrong_owner,
@@ -159,7 +169,7 @@ async fn fail_account_exists_with_wrong_owner() {
         &payer.pubkey(),
         &wallet_address,
         &token_mint_address,
-        &spl_token_2022_interface::id(),
+        &spl_token_2022::id(),
     );
     let transaction = Transaction::new_signed_with_payer(
         &[instruction],
@@ -167,32 +177,19 @@ async fn fail_account_exists_with_wrong_owner() {
         &[&payer],
         recent_blockhash,
     );
-
     assert_eq!(
-        banks_client
-            .process_transaction(transaction)
-            .await
-            .unwrap_err()
-            .unwrap(),
-        TransactionError::InstructionError(
-            0,
-            InstructionError::Custom(AssociatedTokenAccountError::InvalidOwner as u32)
-        )
+        mollusk
+            .process_instruction(&instruction, &accounts)
+            .program_result,
+        ProgramResult::Failure(ProgramError::Custom(
+            spl_associated_token_account::error::AssociatedTokenAccountError::InvalidOwner as u32,
+        ))
     );
 }
 
 #[tokio::test]
 async fn fail_non_ata() {
     let token_mint_address = Pubkey::new_unique();
-    let (banks_client, payer, recent_blockhash) =
-        program_test_2022(token_mint_address).start().await;
-
-    let rent = banks_client.get_rent().await.unwrap();
-    let token_account_len =
-        ExtensionType::try_calculate_account_len::<Account>(&[ExtensionType::ImmutableOwner])
-            .unwrap();
-    let token_account_balance = rent.minimum_balance(token_account_len);
-
     let wallet_address = Pubkey::new_unique();
     let account = Keypair::new();
     let transaction = Transaction::new_signed_with_payer(
@@ -202,10 +199,10 @@ async fn fail_non_ata() {
                 &account.pubkey(),
                 token_account_balance,
                 token_account_len as u64,
-                &spl_token_2022_interface::id(),
+                &spl_token_2022::id(),
             ),
             initialize_account(
-                &spl_token_2022_interface::id(),
+                &spl_token_2022::id(),
                 &account.pubkey(),
                 &token_mint_address,
                 &wallet_address,
@@ -222,7 +219,7 @@ async fn fail_non_ata() {
         &payer.pubkey(),
         &wallet_address,
         &token_mint_address,
-        &spl_token_2022_interface::id(),
+        &spl_token_2022::id(),
     );
     instruction.accounts[1] = AccountMeta::new(account.pubkey(), false); // <-- Invalid associated_account_address
 
@@ -233,11 +230,9 @@ async fn fail_non_ata() {
         recent_blockhash,
     );
     assert_eq!(
-        banks_client
-            .process_transaction(transaction)
-            .await
-            .unwrap_err()
-            .unwrap(),
-        TransactionError::InstructionError(0, InstructionError::InvalidSeeds)
+        mollusk
+            .process_instruction(&instruction, &accounts)
+            .program_result,
+        ProgramResult::Failure(ProgramError::InvalidSeeds)
     );
 }
