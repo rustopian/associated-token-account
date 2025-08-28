@@ -289,6 +289,7 @@ pub fn ensure_ata_system_account_exists(
 /// Build a create ATA instruction and ensure the derived ATA address exists as a system account
 /// This only adds a system account if NO account exists at the ATA address
 /// If an account already exists (regardless of owner), it is preserved unchanged
+#[allow(clippy::too_many_arguments)]
 pub fn build_create_ata_instruction_with_system_account(
     accounts: &mut Vec<(Pubkey, Account)>,
     ata_program_id: Pubkey,
@@ -444,7 +445,7 @@ pub mod account_builder {
             Account {
                 lamports: rent.minimum_balance(data.len()),
                 data,
-                owner: spl_token_interface::id().into(),
+                owner: spl_token_interface::id(),
                 executable: false,
                 rent_epoch: 0,
             }

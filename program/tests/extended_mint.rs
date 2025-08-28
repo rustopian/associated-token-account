@@ -2,7 +2,6 @@ mod utils;
 
 use {
     mollusk_svm::result::ProgramResult,
-    solana_program::instruction::*,
     solana_program_test::*,
     solana_pubkey::Pubkey,
     solana_sdk::{
@@ -10,15 +9,10 @@ use {
         rent::Rent,
         signature::Signer,
         signer::keypair::Keypair,
-        transaction::{Transaction, TransactionError},
     },
     solana_system_interface::instruction as system_instruction,
-    spl_associated_token_account_interface::{
-        address::get_associated_token_address_with_program_id,
-        instruction::create_associated_token_account,
-    },
+    spl_associated_token_account_interface::address::get_associated_token_address_with_program_id,
     spl_token_2022_interface::{
-        error::TokenError,
         extension::{
             transfer_fee, BaseStateWithExtensions, ExtensionType, StateWithExtensionsOwned,
         },
@@ -67,7 +61,7 @@ async fn test_associated_token_account_with_transfer_fees() {
     let create_mint_ix = system_instruction::create_account(
         &payer.pubkey(),
         &mint_account.pubkey(),
-        mint_rent as u64,
+        mint_rent,
         space as u64,
         &spl_token_2022_interface::id(),
     );
