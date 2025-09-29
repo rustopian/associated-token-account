@@ -28,7 +28,7 @@ pinocchio-pubkey = { version = "0.3.0", git = "https://github.com/rustopian/pino
 pinocchio-system = { version = "0.3.0", git = "https://github.com/rustopian/pinocchio.git", branch = "create-prefunded-account" }
 indicatif = { git = "https://github.com/mitsuhiko/indicatif", tag = "0.18.0" }
 solana-system-program = { version = "3.0", git = "https://github.com/rustopian/agave.git", branch = "create-prefunded-account" }
-solana-builtins = { version = "3.0", git = "https://github.com/rustopian/agave.git", branch = "create-prefunded-account" }
+solana-builtins = { version = "3.0", git = "https://github.com/rustopian/agave.git", branch = "create-account-allow-prefund" }
 solana-system-interface = { version = "1.0.0", git = "https://github.com/rustopian/system.git", branch = "create-prefunded-account" }
 mollusk-svm = { version = "0.4.1", git = "https://github.com/rustopian/mollusk.git", branch = "rustopian/create-prefunded-account" }
 mollusk-svm-bencher = { version = "0.4.1", git = "https://github.com/rustopian/mollusk.git", branch = "rustopian/create-prefunded-account" }
