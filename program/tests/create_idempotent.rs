@@ -19,7 +19,9 @@ fn success_account_exists() {
     )
     .with_wallet_and_mint(1_000_000, 6);
     // CreateIdempotent will create the ATA if it doesn't exist
-    let ata_address = harness.create_ata(CreateAtaInstructionType::CreateIdempotent { bump: None }).0;
+    let ata_address = harness
+        .create_ata(CreateAtaInstructionType::CreateIdempotent { bump: None })
+        .0;
     let associated_account = harness
         .ctx
         .account_store
@@ -46,7 +48,12 @@ fn success_account_exists() {
     let result = harness
         .ctx
         .process_and_validate_instruction(&instruction, &[Check::err(ProgramError::IllegalOwner)]);
-    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "Create", Some(result.compute_units_consumed));
+    compare_programs::log_cu_and_byte_comparison_ctx(
+        &harness.ctx,
+        "Create",
+        Some(result.compute_units_consumed),
+        None,
+    );
 
     // But CreateIdempotent should succeed when account exists
     let instruction = build_create_ata_instruction(
@@ -69,7 +76,12 @@ fn success_account_exists() {
                 .build(),
         ],
     );
-    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "CreateIdempotent", Some(result.compute_units_consumed));
+    compare_programs::log_cu_and_byte_comparison_ctx(
+        &harness.ctx,
+        "CreateIdempotent",
+        Some(result.compute_units_consumed),
+        None,
+    );
 }
 
 #[compare_programs]
@@ -97,7 +109,12 @@ fn fail_account_exists_with_wrong_owner() {
             spl_associated_token_account::error::AssociatedTokenAccountError::InvalidOwner as u32,
         ))],
     );
-    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "CreateIdempotent", Some(result.compute_units_consumed));
+    compare_programs::log_cu_and_byte_comparison_ctx(
+        &harness.ctx,
+        "CreateIdempotent",
+        Some(result.compute_units_consumed),
+        None,
+    );
 }
 
 #[compare_programs]

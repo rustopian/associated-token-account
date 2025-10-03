@@ -38,7 +38,10 @@ impl XorShift64 {
 }
 
 /// Setup mollusk with local ATA and token programs
-pub fn setup_mollusk_with_programs(token_program_id: &Pubkey, ata_program_filename: &str) -> Mollusk {
+pub fn setup_mollusk_with_programs(
+    token_program_id: &Pubkey,
+    ata_program_filename: &str,
+) -> Mollusk {
     let ata_program_id = spl_associated_token_account_interface::program::id();
     let mut mollusk = Mollusk::new(&ata_program_id, ata_program_filename);
 
@@ -156,7 +159,11 @@ impl AtaTestHarness {
     }
 
     /// Create a new test harness with the specified token program, ATA program filename, and deterministic seed
-    pub fn new_with_program_and_seed(token_program_id: &Pubkey, ata_program_filename: &str, seed: u64) -> Self {
+    pub fn new_with_program_and_seed(
+        token_program_id: &Pubkey,
+        ata_program_filename: &str,
+        seed: u64,
+    ) -> Self {
         let mollusk = setup_mollusk_with_programs(token_program_id, ata_program_filename);
         let mut rng = XorShift64::seeded(seed);
         // Derive payer deterministically from RNG

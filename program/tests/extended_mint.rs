@@ -20,8 +20,8 @@ fn test_associated_token_account_with_transfer_fees() {
         compare_programs::current_program_filename(),
         compare_programs::seed(),
     )
-        .with_wallet(1_000_000)
-        .with_additional_wallet(1_000_000);
+    .with_wallet(1_000_000)
+    .with_additional_wallet(1_000_000);
     let mut harness = harness
         .with_mint_with_extensions(&[ExtensionType::TransferFeeConfig])
         .initialize_transfer_fee(transfer_fee_basis_points, maximum_fee)
@@ -53,7 +53,12 @@ fn test_associated_token_account_with_transfer_fees() {
             spl_token_2022_interface::error::TokenError::InsufficientFunds as u32,
         ))],
     );
-    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "TransferCheckedWithFee_Insufficient", Some(result.compute_units_consumed));
+    compare_programs::log_cu_and_byte_comparison_ctx(
+        &harness.ctx,
+        "TransferCheckedWithFee_Insufficient",
+        Some(result.compute_units_consumed),
+        None,
+    );
 
     // Successful transfer
     let (transfer_amount, fee) = (500, 50);
@@ -72,7 +77,12 @@ fn test_associated_token_account_with_transfer_fees() {
         .unwrap(),
         &[Check::success()],
     );
-    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "TransferCheckedWithFee_Success", Some(result.compute_units_consumed));
+    compare_programs::log_cu_and_byte_comparison_ctx(
+        &harness.ctx,
+        "TransferCheckedWithFee_Success",
+        Some(result.compute_units_consumed),
+        None,
+    );
 
     // Verify final account states
     let sender_state =

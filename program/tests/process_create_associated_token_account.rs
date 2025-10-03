@@ -21,7 +21,12 @@ fn test_associated_token_address() {
     )
     .with_wallet_and_mint(1_000_000, 6);
     let (_addr, result) = harness.create_ata(CreateAtaInstructionType::default());
-    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "Create", Some(result.compute_units_consumed));
+    compare_programs::log_cu_and_byte_comparison_ctx(
+        &harness.ctx,
+        "Create",
+        Some(result.compute_units_consumed),
+        None,
+    );
 }
 
 #[compare_programs]
@@ -64,7 +69,12 @@ fn test_create_with_fewer_lamports() {
                 .build(),
         ],
     );
-    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "Create", Some(result.compute_units_consumed));
+    compare_programs::log_cu_and_byte_comparison_ctx(
+        &harness.ctx,
+        "Create",
+        Some(result.compute_units_consumed),
+        None,
+    );
 }
 
 #[compare_programs]
@@ -107,7 +117,12 @@ fn test_create_with_excess_lamports() {
                 .build(),
         ],
     );
-    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "Create", Some(result.compute_units_consumed));
+    compare_programs::log_cu_and_byte_comparison_ctx(
+        &harness.ctx,
+        "Create",
+        Some(result.compute_units_consumed),
+        None,
+    );
 }
 
 #[compare_programs]
@@ -148,8 +163,17 @@ fn test_create_account_mismatch() {
             &instruction,
             &[Check::err(ProgramError::InvalidSeeds)],
         );
-        let name = match account_idx { 1 => "Create_InvalidSeeds_1", 2 => "Create_InvalidSeeds_2", _ => "Create_InvalidSeeds_3" };
-        compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, name, Some(result.compute_units_consumed));
+        let name = match account_idx {
+            1 => "Create_InvalidSeeds_1",
+            2 => "Create_InvalidSeeds_2",
+            _ => "Create_InvalidSeeds_3",
+        };
+        compare_programs::log_cu_and_byte_comparison_ctx(
+            &harness.ctx,
+            name,
+            Some(result.compute_units_consumed),
+            None,
+        );
     }
 }
 
@@ -171,5 +195,5 @@ fn test_create_associated_token_account_using_legacy_implicit_instruction() {
                 .push(AccountMeta::new_readonly(sysvar::rent::id(), false));
         },
     );
-    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "Create_Legacy", None);
+    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "Create_Legacy", None, None);
 }
