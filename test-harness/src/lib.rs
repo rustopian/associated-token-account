@@ -15,10 +15,32 @@ use {
     std::{collections::HashMap, vec::Vec},
 };
 
+#[derive(Clone)]
+struct XorShift64 {
+    state: u64,
+}
+
+impl XorShift64 {
+    fn seeded(seed: u64) -> Self {
+        // Avoid zero state
+        let state = if seed == 0 { 0x9e3779b97f4a7c15 } else { seed };
+        Self { state }
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        let mut x = self.state;
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        self.state = x;
+        x
+    }
+}
+
 /// Setup mollusk with local ATA and token programs
-pub fn setup_mollusk_with_programs(token_program_id: &Pubkey) -> Mollusk {
+pub fn setup_mollusk_with_programs(token_program_id: &Pubkey, ata_program_filename: &str) -> Mollusk {
     let ata_program_id = spl_associated_token_account_interface::program::id();
-    let mut mollusk = Mollusk::new(&ata_program_id, "spl_associated_token_account");
+    let mut mollusk = Mollusk::new(&ata_program_id, ata_program_filename);
 
     if *token_program_id == spl_token_2022_interface::id() {
         mollusk.add_program(token_program_id, "spl_token_2022", &LOADER_V3);
@@ -75,9 +97,27 @@ pub struct AtaTestHarness {
     pub mint: Option<Pubkey>,
     pub mint_authority: Option<Pubkey>,
     pub ata_address: Option<Pubkey>,
+    rng: Option<XorShift64>,
 }
 
 impl AtaTestHarness {
+    fn next_pubkey(&mut self) -> Pubkey {
+        if let Some(rng) = &mut self.rng {
+            let mut bytes = [0u8; 32];
+            for chunk in bytes.chunks_mut(8) {
+                let v = rng.next_u64();
+                chunk.copy_from_slice(&v.to_le_bytes());
+            }
+            Pubkey::new_from_array(bytes)
+        } else {
+            Pubkey::new_unique()
+        }
+    }
+
+    pub fn new_address(&mut self) -> Pubkey {
+        self.next_pubkey()
+    }
+
     /// Ensure an account exists in the context store with the given lamports.
     /// If the account does not exist, it will be created as a system account.
     /// However, this can be called on a non-system account (to be used for
@@ -115,9 +155,38 @@ impl AtaTestHarness {
             .process_and_validate_instruction(&create_mint_ix, &[Check::success()]);
     }
 
+    /// Create a new test harness with the specified token program, ATA program filename, and deterministic seed
+    pub fn new_with_program_and_seed(token_program_id: &Pubkey, ata_program_filename: &str, seed: u64) -> Self {
+        let mollusk = setup_mollusk_with_programs(token_program_id, ata_program_filename);
+        let mut rng = XorShift64::seeded(seed);
+        // Derive payer deterministically from RNG
+        let payer = {
+            let mut bytes = [0u8; 32];
+            for chunk in bytes.chunks_mut(8) {
+                let v = rng.next_u64();
+                chunk.copy_from_slice(&v.to_le_bytes());
+            }
+            Pubkey::new_from_array(bytes)
+        };
+        let ctx = mollusk.with_context(HashMap::new());
+
+        let mut harness = Self {
+            ctx,
+            token_program_id: *token_program_id,
+            payer,
+            wallet: None,
+            mint: None,
+            mint_authority: None,
+            ata_address: None,
+            rng: Some(rng),
+        };
+        harness.ensure_account_exists_with_lamports(payer, 10_000_000_000);
+        harness
+    }
+
     /// Create a new test harness with the specified token program
     pub fn new(token_program_id: &Pubkey) -> Self {
-        let mollusk = setup_mollusk_with_programs(token_program_id);
+        let mollusk = setup_mollusk_with_programs(token_program_id, "spl_associated_token_account");
         let payer = Pubkey::new_unique();
         let ctx = mollusk.with_context(HashMap::new());
 
@@ -129,6 +198,7 @@ impl AtaTestHarness {
             mint: None,
             mint_authority: None,
             ata_address: None,
+            rng: None,
         };
         harness.ensure_account_exists_with_lamports(payer, 10_000_000_000);
         harness
@@ -136,22 +206,23 @@ impl AtaTestHarness {
 
     /// Add a wallet with the specified lamports
     pub fn with_wallet(mut self, lamports: u64) -> Self {
-        let wallet = Pubkey::new_unique();
+        let wallet = self.next_pubkey();
         self.ensure_accounts_with_lamports(&[(wallet, lamports)]);
         self.wallet = Some(wallet);
         self
     }
 
     /// Add an additional wallet (e.g. for sender/receiver scenarios) - returns harness and the new wallet
-    pub fn with_additional_wallet(self, lamports: u64) -> (Self, Pubkey) {
-        let additional_wallet = Pubkey::new_unique();
+    pub fn with_additional_wallet(mut self, lamports: u64) -> (Self, Pubkey) {
+        let additional_wallet = self.next_pubkey();
         self.ensure_accounts_with_lamports(&[(additional_wallet, lamports)]);
         (self, additional_wallet)
     }
 
     /// Create and initialize a mint with the specified decimals
     pub fn with_mint(mut self, decimals: u8) -> Self {
-        let [mint_authority, mint_account] = [Pubkey::new_unique(); 2];
+        let mint_authority = self.next_pubkey();
+        let mint_account = self.next_pubkey();
 
         self.create_mint_account(mint_account, Mint::LEN, self.token_program_id);
 
@@ -166,7 +237,8 @@ impl AtaTestHarness {
             panic!("with_mint_with_extensions() can only be used with Token-2022 program");
         }
 
-        let [mint_authority, mint_account] = [Pubkey::new_unique(); 2];
+        let mint_authority = self.next_pubkey();
+        let mint_account = self.next_pubkey();
 
         // Calculate space needed for extensions
         let space =
@@ -353,8 +425,11 @@ impl AtaTestHarness {
         self.with_wallet(wallet_lamports).with_mint(decimals)
     }
 
-    /// Build and execute a create ATA instruction
-    pub fn create_ata(&mut self, instruction_type: CreateAtaInstructionType) -> Pubkey {
+    /// Build and execute a create ATA instruction, returning the resulting InstructionResult
+    pub fn create_ata(
+        &mut self,
+        instruction_type: CreateAtaInstructionType,
+    ) -> (Pubkey, mollusk_svm::result::InstructionResult) {
         let wallet = self.wallet.expect("Wallet must be set");
         let mint = self.mint.expect("Mint must be set");
         let ata_address =
@@ -382,7 +457,7 @@ impl AtaTestHarness {
             token_account_rent_exempt_balance()
         };
 
-        self.ctx.process_and_validate_instruction(
+        let result = self.ctx.process_and_validate_instruction(
             &instruction,
             &[
                 Check::success(),
@@ -395,7 +470,7 @@ impl AtaTestHarness {
         );
 
         self.ata_address = Some(ata_address);
-        ata_address
+        (ata_address, result)
     }
 
     /// Create a token account with wrong owner at the ATA address (for error testing)

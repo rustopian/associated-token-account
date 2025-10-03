@@ -1,5 +1,6 @@
 use {
     ata_mollusk_harness::AtaTestHarness,
+    compare_programs::compare_programs,
     mollusk_svm::result::Check,
     solana_program_error::ProgramError,
     spl_token_2022_interface::{
@@ -10,11 +11,15 @@ use {
     },
 };
 
-#[test]
+#[compare_programs]
 fn test_associated_token_account_with_transfer_fees() {
     let maximum_fee = 100;
     let transfer_fee_basis_points = 1_000;
-    let (harness, receiver_wallet) = AtaTestHarness::new(&spl_token_2022_interface::id())
+    let (harness, receiver_wallet) = AtaTestHarness::new_with_program_and_seed(
+        &spl_token_2022_interface::id(),
+        compare_programs::current_program_filename(),
+        compare_programs::seed(),
+    )
         .with_wallet(1_000_000)
         .with_additional_wallet(1_000_000);
     let mut harness = harness
@@ -31,7 +36,7 @@ fn test_associated_token_account_with_transfer_fees() {
     harness.mint_tokens(50 * maximum_fee);
 
     // Insufficient funds transfer
-    harness.ctx.process_and_validate_instruction(
+    let result = harness.ctx.process_and_validate_instruction(
         &transfer_fee::instruction::transfer_checked_with_fee(
             &spl_token_2022_interface::id(),
             &sender_ata,
@@ -48,10 +53,11 @@ fn test_associated_token_account_with_transfer_fees() {
             spl_token_2022_interface::error::TokenError::InsufficientFunds as u32,
         ))],
     );
+    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "TransferCheckedWithFee_Insufficient", Some(result.compute_units_consumed));
 
     // Successful transfer
     let (transfer_amount, fee) = (500, 50);
-    harness.ctx.process_and_validate_instruction(
+    let result = harness.ctx.process_and_validate_instruction(
         &transfer_fee::instruction::transfer_checked_with_fee(
             &spl_token_2022_interface::id(),
             &sender_ata,
@@ -66,6 +72,7 @@ fn test_associated_token_account_with_transfer_fees() {
         .unwrap(),
         &[Check::success()],
     );
+    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "TransferCheckedWithFee_Success", Some(result.compute_units_consumed));
 
     // Verify final account states
     let sender_state =

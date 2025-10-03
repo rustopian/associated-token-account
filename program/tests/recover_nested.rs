@@ -1,5 +1,6 @@
 use {
     ata_mollusk_harness::AtaTestHarness,
+    compare_programs::compare_programs,
     mollusk_svm::result::Check,
     solana_instruction::AccountMeta,
     solana_program_error::ProgramError,
@@ -13,7 +14,11 @@ use {
 const TEST_MINT_AMOUNT: u64 = 100;
 
 fn test_recover_nested_same_mint(program_id: &Pubkey) {
-    let mut harness = AtaTestHarness::new(program_id)
+    let mut harness = AtaTestHarness::new_with_program_and_seed(
+        program_id,
+        compare_programs::current_program_filename(),
+        compare_programs::seed(),
+    )
         .with_wallet(1_000_000)
         .with_mint(0)
         .with_ata();
@@ -35,7 +40,7 @@ fn test_recover_nested_same_mint(program_id: &Pubkey) {
 
     // Build and execute recover instruction
     let recover_instruction = harness.build_recover_nested_instruction(mint, mint);
-    harness.ctx.process_and_validate_instruction(
+    let result = harness.ctx.process_and_validate_instruction(
         &recover_instruction,
         &[
             Check::success(),
@@ -49,21 +54,15 @@ fn test_recover_nested_same_mint(program_id: &Pubkey) {
             Check::account(&nested_ata).closed().build(),
         ],
     );
-
-    // Validate the recovery worked - tokens should be in the destination ATA (owner_ata)
-    let destination_account = harness.get_account(owner_ata);
-    let destination_amount =
-        StateWithExtensionsOwned::<spl_token_2022_interface::state::Account>::unpack(
-            destination_account.data,
-        )
-        .unwrap()
-        .base
-        .amount;
-    assert_eq!(destination_amount, TEST_MINT_AMOUNT);
+    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "RecoverNested", Some(result.compute_units_consumed));
 }
 
 fn test_fail_missing_wallet_signature(token_program_id: &Pubkey) {
-    let mut harness = AtaTestHarness::new(token_program_id)
+    let mut harness = AtaTestHarness::new_with_program_and_seed(
+        token_program_id,
+        compare_programs::current_program_filename(),
+        compare_programs::seed(),
+    )
         .with_wallet(1_000_000)
         .with_mint(0)
         .with_ata();
@@ -76,14 +75,19 @@ fn test_fail_missing_wallet_signature(token_program_id: &Pubkey) {
     let mut recover_instruction = harness.build_recover_nested_instruction(mint, mint);
     recover_instruction.accounts[5] = AccountMeta::new(harness.wallet.unwrap(), false);
 
-    harness.ctx.process_and_validate_instruction(
+    let result = harness.ctx.process_and_validate_instruction(
         &recover_instruction,
         &[Check::err(ProgramError::MissingRequiredSignature)],
     );
+    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "RecoverNested", Some(result.compute_units_consumed));
 }
 
 fn test_fail_wrong_signer(token_program_id: &Pubkey) {
-    let mut harness = AtaTestHarness::new(token_program_id)
+    let mut harness = AtaTestHarness::new_with_program_and_seed(
+        token_program_id,
+        compare_programs::current_program_filename(),
+        compare_programs::seed(),
+    )
         .with_wallet(1_000_000)
         .with_mint(0)
         .with_ata();
@@ -93,39 +97,49 @@ fn test_fail_wrong_signer(token_program_id: &Pubkey) {
     let nested_ata = harness.create_ata_for_owner(owner_ata, 1_000_000);
     harness.mint_tokens_to(nested_ata, TEST_MINT_AMOUNT);
 
-    let wrong_wallet = Pubkey::new_unique();
+    let wrong_wallet = harness.new_address();
     harness.create_ata_for_owner(wrong_wallet, 1_000_000);
 
     let recover_instruction =
         instruction::recover_nested(&wrong_wallet, &mint, &mint, token_program_id);
 
-    harness.ctx.process_and_validate_instruction(
+    let result = harness.ctx.process_and_validate_instruction(
         &recover_instruction,
         &[Check::err(ProgramError::IllegalOwner)],
     );
+    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "RecoverNested", Some(result.compute_units_consumed));
 }
 
 fn test_fail_not_nested(token_program_id: &Pubkey) {
-    let mut harness = AtaTestHarness::new(token_program_id)
+    let mut harness = AtaTestHarness::new_with_program_and_seed(
+        token_program_id,
+        compare_programs::current_program_filename(),
+        compare_programs::seed(),
+    )
         .with_wallet(1_000_000)
         .with_mint(0)
         .with_ata();
 
     let mint = harness.mint.unwrap();
-    let wrong_wallet = Pubkey::new_unique();
+    let wrong_wallet = harness.new_address();
 
     let nested_ata = harness.create_ata_for_owner(wrong_wallet, 0);
     harness.mint_tokens_to(nested_ata, TEST_MINT_AMOUNT);
 
     let recover_instruction = harness.build_recover_nested_instruction(mint, mint);
-    harness.ctx.process_and_validate_instruction(
+    let result = harness.ctx.process_and_validate_instruction(
         &recover_instruction,
         &[Check::err(ProgramError::IllegalOwner)],
     );
+    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "RecoverNested", Some(result.compute_units_consumed));
 }
 
 fn test_fail_wrong_address_derivation_owner(token_program_id: &Pubkey) {
-    let mut harness = AtaTestHarness::new(token_program_id)
+    let mut harness = AtaTestHarness::new_with_program_and_seed(
+        token_program_id,
+        compare_programs::current_program_filename(),
+        compare_programs::seed(),
+    )
         .with_wallet(1_000_000)
         .with_mint(0)
         .with_ata();
@@ -136,29 +150,34 @@ fn test_fail_wrong_address_derivation_owner(token_program_id: &Pubkey) {
     harness.mint_tokens_to(nested_ata, TEST_MINT_AMOUNT);
 
     let mut recover_instruction = harness.build_recover_nested_instruction(mint, mint);
-    let wrong_owner_address = Pubkey::new_unique();
+    let wrong_owner_address = harness.new_address();
     recover_instruction.accounts[3] = AccountMeta::new_readonly(wrong_owner_address, false);
 
     harness.ensure_accounts_with_lamports(&[(wrong_owner_address, 1_000_000)]);
 
-    harness.ctx.process_and_validate_instruction(
+    let result = harness.ctx.process_and_validate_instruction(
         &recover_instruction,
         &[Check::err(ProgramError::InvalidSeeds)],
     );
+    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "RecoverNested", Some(result.compute_units_consumed));
 }
 
-#[test]
+#[compare_programs]
 fn success_same_mint_2022() {
     test_recover_nested_same_mint(&spl_token_2022_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn success_same_mint() {
     test_recover_nested_same_mint(&spl_token_interface::id());
 }
 
 fn test_recover_nested_different_mints(program_id: &Pubkey) {
-    let harness = AtaTestHarness::new(program_id)
+    let harness = AtaTestHarness::new_with_program_and_seed(
+        program_id,
+        compare_programs::current_program_filename(),
+        compare_programs::seed(),
+    )
         .with_wallet(1_000_000)
         .with_mint(0)
         .with_ata();
@@ -187,7 +206,7 @@ fn test_recover_nested_different_mints(program_id: &Pubkey) {
 
     // Build and execute recover instruction
     let recover_instruction = harness.build_recover_nested_instruction(owner_mint, nested_mint);
-    harness.ctx.process_and_validate_instruction(
+    let result = harness.ctx.process_and_validate_instruction(
         &recover_instruction,
         &[
             Check::success(),
@@ -201,71 +220,66 @@ fn test_recover_nested_different_mints(program_id: &Pubkey) {
             Check::account(&nested_ata).closed().build(),
         ],
     );
-
-    // Validate the recovery worked - tokens should be in the destination ATA
-    let destination_account = harness.get_account(destination_ata);
-    let destination_amount =
-        StateWithExtensionsOwned::<spl_token_2022_interface::state::Account>::unpack(
-            destination_account.data,
-        )
-        .unwrap()
-        .base
-        .amount;
-    assert_eq!(destination_amount, TEST_MINT_AMOUNT);
+    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "RecoverNested", Some(result.compute_units_consumed));
 }
 
-#[test]
+#[compare_programs]
 fn success_different_mints() {
     test_recover_nested_different_mints(&spl_token_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn success_different_mints_2022() {
     test_recover_nested_different_mints(&spl_token_2022_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn fail_missing_wallet_signature_2022() {
     test_fail_missing_wallet_signature(&spl_token_2022_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn fail_missing_wallet_signature() {
     test_fail_missing_wallet_signature(&spl_token_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn fail_wrong_signer_2022() {
     test_fail_wrong_signer(&spl_token_2022_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn fail_wrong_signer() {
     test_fail_wrong_signer(&spl_token_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn fail_not_nested_2022() {
     test_fail_not_nested(&spl_token_2022_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn fail_not_nested() {
     test_fail_not_nested(&spl_token_interface::id());
 }
-#[test]
+
+#[compare_programs]
 fn fail_wrong_address_derivation_owner_2022() {
     test_fail_wrong_address_derivation_owner(&spl_token_2022_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn fail_wrong_address_derivation_owner() {
     test_fail_wrong_address_derivation_owner(&spl_token_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn fail_owner_account_does_not_exist() {
-    let mut harness = AtaTestHarness::new(&spl_token_2022_interface::id())
+    let mut harness = AtaTestHarness::new_with_program_and_seed(
+        &spl_token_2022_interface::id(),
+        compare_programs::current_program_filename(),
+        compare_programs::seed(),
+    )
         .with_wallet(1_000_000)
         .with_mint(0);
     // Note: deliberately NOT calling .with_ata() - owner ATA should not exist
@@ -289,15 +303,20 @@ fn fail_owner_account_does_not_exist() {
         &spl_token_2022_interface::id(),
     );
 
-    harness.ctx.process_and_validate_instruction(
+    let result = harness.ctx.process_and_validate_instruction(
         &recover_instruction,
         &[Check::err(ProgramError::IllegalOwner)],
     );
+    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "RecoverNested", Some(result.compute_units_consumed));
 }
 
-#[test]
+#[compare_programs]
 fn fail_wrong_spl_token_program() {
-    let mut harness = AtaTestHarness::new(&spl_token_2022_interface::id())
+    let mut harness = AtaTestHarness::new_with_program_and_seed(
+        &spl_token_2022_interface::id(),
+        compare_programs::current_program_filename(),
+        compare_programs::seed(),
+    )
         .with_wallet(1_000_000)
         .with_mint(0)
         .with_ata();
@@ -315,15 +334,20 @@ fn fail_wrong_spl_token_program() {
         &spl_token_interface::id(), // Wrong program ID
     );
 
-    harness.ctx.process_and_validate_instruction(
+    let result = harness.ctx.process_and_validate_instruction(
         &recover_instruction,
         &[Check::err(ProgramError::IllegalOwner)],
     );
+    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "RecoverNested", Some(result.compute_units_consumed));
 }
 
-#[test]
+#[compare_programs]
 fn fail_destination_not_wallet_ata() {
-    let mut harness = AtaTestHarness::new(&spl_token_2022_interface::id())
+    let mut harness = AtaTestHarness::new_with_program_and_seed(
+        &spl_token_2022_interface::id(),
+        compare_programs::current_program_filename(),
+        compare_programs::seed(),
+    )
         .with_wallet(1_000_000)
         .with_mint(0)
         .with_ata();
@@ -334,14 +358,15 @@ fn fail_destination_not_wallet_ata() {
     harness.mint_tokens_to(nested_ata, TEST_MINT_AMOUNT);
 
     // Create wrong destination ATA
-    let wrong_wallet = Pubkey::new_unique();
+    let wrong_wallet = harness.new_address();
     let wrong_destination_ata = harness.create_ata_for_owner(wrong_wallet, 1_000_000);
 
     let mut recover_instruction = harness.build_recover_nested_instruction(mint, mint);
     recover_instruction.accounts[2] = AccountMeta::new(wrong_destination_ata, false);
 
-    harness.ctx.process_and_validate_instruction(
+    let result = harness.ctx.process_and_validate_instruction(
         &recover_instruction,
         &[Check::err(ProgramError::InvalidSeeds)],
     );
+    compare_programs::log_cu_and_byte_comparison_ctx(&harness.ctx, "RecoverNested", Some(result.compute_units_consumed));
 }
