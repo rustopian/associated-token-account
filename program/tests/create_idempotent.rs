@@ -6,7 +6,6 @@ use {
     },
     mollusk_svm::result::Check,
     solana_program_error::ProgramError,
-    solana_pubkey::Pubkey,
 };
 
 #[compare_programs]

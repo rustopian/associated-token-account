@@ -12,14 +12,35 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 
+#[derive(Clone)]
+struct PendingRun {
+    compute_units: Option<u64>,
+    result: Option<String>,
+    snapshot: BTreeMap<Pubkey, Account>,
+}
+
+#[derive(Clone)]
+struct ComparisonRecord {
+    test: String,
+    instruction: String,
+    note: Option<String>,
+    compute_units_a: Option<u64>,
+    compute_units_b: Option<u64>,
+    byte_equal: Option<bool>,
+    result_a: Option<String>,
+    result_b: Option<String>,
+    accounts_a: BTreeMap<Pubkey, Account>,
+    accounts_b: BTreeMap<Pubkey, Account>,
+}
+
 static PROGRAM_FILENAMES: OnceCell<(String, String)> = OnceCell::new();
 static PROGRAM_LABELS: OnceCell<(String, String)> = OnceCell::new();
 static CURRENT_INDEX: OnceCell<AtomicUsize> = OnceCell::new();
 static TEST_SEED: OnceCell<u64> = OnceCell::new();
 thread_local! {
-    static TLS_TEST_NAME: RefCell<String> = RefCell::new(String::new());
-    static TLS_INDEX: Cell<usize> = Cell::new(0);
-    static TLS_PENDING: RefCell<HashMap<(String, String), (Option<u64>, Option<String>, BTreeMap<Pubkey, Account>)>> = RefCell::new(HashMap::new());
+    static TLS_TEST_NAME: RefCell<String> = const { RefCell::new(String::new()) };
+    static TLS_INDEX: Cell<usize> = const { Cell::new(0) };
+    static TLS_PENDING: RefCell<HashMap<(String, String), PendingRun>> = RefCell::new(HashMap::new());
 }
 
 fn write_missing_and_extra(
@@ -130,7 +151,7 @@ static SNAPSHOT_A: OnceCell<BTreeMap<Pubkey, Account>> = OnceCell::new();
 static SNAPSHOT_B: OnceCell<BTreeMap<Pubkey, Account>> = OnceCell::new();
 static WRITE_LOCK: OnceCell<Mutex<()>> = OnceCell::new();
 
-thread_local! { static TLS_RNG: RefCell<Option<u64>> = RefCell::new(None); }
+thread_local! { static TLS_RNG: RefCell<Option<u64>> = const { RefCell::new(None) }; }
 
 fn rng_next_bytes32() -> [u8; 32] {
     TLS_RNG.with(|cell| {
@@ -235,7 +256,11 @@ pub fn log_cu_and_byte_comparison_ctx(
             TLS_PENDING.with(|p| {
                 p.borrow_mut().insert(
                     (test_name.clone(), instruction_name.to_string()),
-                    (cu_used, result_str.map(|s| s.to_string()), account_snapshot),
+                    PendingRun {
+                        compute_units: cu_used,
+                        result: result_str.map(|s| s.to_string()),
+                        snapshot: account_snapshot,
+                    },
                 );
             });
         }
@@ -243,13 +268,13 @@ pub fn log_cu_and_byte_comparison_ctx(
             let _ = SNAPSHOT_B.set(account_snapshot.clone());
             let (mut compute_units_a, mut result_a, mut snapshot_a) = (None, None, BTreeMap::new());
             TLS_PENDING.with(|p| {
-                if let Some((a_cu, a_res, a_snap)) = p
+                if let Some(pending) = p
                     .borrow_mut()
                     .remove(&(test_name.clone(), instruction_name.to_string()))
                 {
-                    compute_units_a = a_cu;
-                    result_a = a_res;
-                    snapshot_a = a_snap;
+                    compute_units_a = pending.compute_units;
+                    result_a = pending.result;
+                    snapshot_a = pending.snapshot;
                 }
             });
             let byte_equal = if !snapshot_a.is_empty() {
@@ -257,41 +282,25 @@ pub fn log_cu_and_byte_comparison_ctx(
             } else {
                 None
             };
-            append_row(
-                &test_name,
-                instruction_name,
-                None,
+            let record = ComparisonRecord {
+                test: test_name,
+                instruction: instruction_name.to_string(),
+                note: None,
                 compute_units_a,
-                cu_used,
+                compute_units_b: cu_used,
                 byte_equal,
-                result_a.as_deref(),
-                result_str,
-            );
-            write_full_details(
-                &test_name,
-                instruction_name,
-                compute_units_a,
-                cu_used,
-                byte_equal,
-                result_a.as_deref(),
-                result_str,
-                &snapshot_a,
-                &account_snapshot,
-            );
+                result_a,
+                result_b: result_str.map(|s| s.to_string()),
+                accounts_a: snapshot_a,
+                accounts_b: account_snapshot,
+            };
+            append_row(&record);
+            write_full_details(&record);
         }
     }
 }
 
-fn append_row(
-    test: &str,
-    instruction: &str,
-    note: Option<&str>,
-    compute_units_a: Option<u64>,
-    compute_units_b: Option<u64>,
-    byte_equal: Option<bool>,
-    result_a: Option<&str>,
-    result_b: Option<&str>,
-) {
+fn append_row(record: &ComparisonRecord) {
     let mut path = PathBuf::from("target/compare-programs");
     if fs::create_dir_all(&path).is_err() {
         return;
@@ -312,68 +321,72 @@ fn append_row(
             );
         }
 
-        let byte_equality_label = byte_equal
+        let byte_equality_label = record
+            .byte_equal
             .map(|b| if b { "100%" } else { "DIFF" })
             .unwrap_or("");
         let _ = f.write_all(
             format!(
                 "{},{},{},{},{},{},{},{}\n",
-                test,
-                instruction,
-                note.unwrap_or_default(),
-                compute_units_a.map(|v| v.to_string()).unwrap_or_default(),
-                compute_units_b.map(|v| v.to_string()).unwrap_or_default(),
+                record.test,
+                record.instruction,
+                record.note.as_deref().unwrap_or_default(),
+                record
+                    .compute_units_a
+                    .map(|v| v.to_string())
+                    .unwrap_or_default(),
+                record
+                    .compute_units_b
+                    .map(|v| v.to_string())
+                    .unwrap_or_default(),
                 byte_equality_label,
-                result_a.unwrap_or_default(),
-                result_b.unwrap_or_default(),
+                record.result_a.as_deref().unwrap_or_default(),
+                record.result_b.as_deref().unwrap_or_default(),
             )
             .as_bytes(),
         );
     }
 }
 
-fn write_full_details(
-    test: &str,
-    instruction: &str,
-    compute_units_a: Option<u64>,
-    compute_units_b: Option<u64>,
-    byte_equal: Option<bool>,
-    result_a: Option<&str>,
-    result_b: Option<&str>,
-    accounts_a: &BTreeMap<Pubkey, Account>,
-    accounts_b: &BTreeMap<Pubkey, Account>,
-) {
+fn write_full_details(record: &ComparisonRecord) {
     let mut buffer = String::new();
-    let _ = writeln!(buffer, "=== {} :: {} ===", test, instruction);
+    let _ = writeln!(buffer, "=== {} :: {} ===", record.test, record.instruction);
     let _ = writeln!(
         buffer,
         "CUs: A={}, B={}",
-        compute_units_a.map(|v| v.to_string()).unwrap_or_default(),
-        compute_units_b.map(|v| v.to_string()).unwrap_or_default()
+        record
+            .compute_units_a
+            .map(|v| v.to_string())
+            .unwrap_or_default(),
+        record
+            .compute_units_b
+            .map(|v| v.to_string())
+            .unwrap_or_default()
     );
     let _ = writeln!(
         buffer,
         "ByteEqual: {}",
-        byte_equal
+        record
+            .byte_equal
             .map(|b| if b { "100%" } else { "DIFF" })
             .unwrap_or("")
     );
-    if let Some(result_a_str) = result_a {
+    if let Some(result_a_str) = record.result_a.as_deref() {
         let _ = writeln!(buffer, "Result A: {}", result_a_str);
     }
-    if let Some(result_b_str) = result_b {
+    if let Some(result_b_str) = record.result_b.as_deref() {
         let _ = writeln!(buffer, "Result B: {}", result_b_str);
     }
 
-    write_missing_and_extra(&mut buffer, accounts_a, accounts_b);
-    write_account_changes(&mut buffer, accounts_a, accounts_b);
-    if accounts_a == accounts_b {
+    write_missing_and_extra(&mut buffer, &record.accounts_a, &record.accounts_b);
+    write_account_changes(&mut buffer, &record.accounts_a, &record.accounts_b);
+    if record.accounts_a == record.accounts_b {
         let _ = writeln!(buffer, "No state differences");
     }
 
-    write_accounts_section(&mut buffer, "-- Accounts A --", accounts_a);
-    write_accounts_section(&mut buffer, "-- Accounts B --", accounts_b);
-    buffer.push_str("\n");
+    write_accounts_section(&mut buffer, "-- Accounts A --", &record.accounts_a);
+    write_accounts_section(&mut buffer, "-- Accounts B --", &record.accounts_b);
+    buffer.push('\n');
 
     let mut path = PathBuf::from("target/compare-programs");
     if fs::create_dir_all(&path).is_err() {
