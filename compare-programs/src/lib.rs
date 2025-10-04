@@ -151,8 +151,6 @@ fn write_accounts_section(buffer: &mut String, title: &str, accounts: &BTreeMap<
     }
 }
 
-static SNAPSHOT_A: OnceCell<BTreeMap<Pubkey, Account>> = OnceCell::new();
-static SNAPSHOT_B: OnceCell<BTreeMap<Pubkey, Account>> = OnceCell::new();
 static WRITE_LOCK: OnceCell<Mutex<()>> = OnceCell::new();
 
 thread_local! { static TLS_RNG: RefCell<Option<u64>> = const { RefCell::new(None) }; }
@@ -256,7 +254,6 @@ pub fn log_cu_and_byte_comparison_ctx(
 
     match idx {
         0 => {
-            let _ = SNAPSHOT_A.set(account_snapshot.clone());
             TLS_PENDING.with(|p| {
                 p.borrow_mut().insert(
                     (test_name.clone(), instruction_name.to_string()),
@@ -269,7 +266,6 @@ pub fn log_cu_and_byte_comparison_ctx(
             });
         }
         _ => {
-            let _ = SNAPSHOT_B.set(account_snapshot.clone());
             let (mut compute_units_a, mut result_a, mut snapshot_a) = (None, None, BTreeMap::new());
             TLS_PENDING.with(|p| {
                 if let Some(pending) = p
@@ -315,7 +311,6 @@ pub fn log_cu_and_byte_comparison_snapshot(
 
     match idx {
         0 => {
-            let _ = SNAPSHOT_A.set(account_snapshot.clone());
             TLS_PENDING.with(|p| {
                 p.borrow_mut().insert(
                     (test_name.clone(), instruction_name.to_string()),
@@ -328,7 +323,6 @@ pub fn log_cu_and_byte_comparison_snapshot(
             });
         }
         _ => {
-            let _ = SNAPSHOT_B.set(account_snapshot.clone());
             let (mut compute_units_a, mut result_a, mut snapshot_a) = (None, None, BTreeMap::new());
             TLS_PENDING.with(|p| {
                 if let Some(pending) = p
