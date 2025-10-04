@@ -1,4 +1,3 @@
-use compare_programs;
 use {
     mollusk_svm::{program::loader_keys::LOADER_V3, result::Check, Mollusk, MolluskContext},
     solana_account::Account,

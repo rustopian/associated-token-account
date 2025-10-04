@@ -402,7 +402,7 @@ pub fn default_observer(
         log_cu_and_byte_comparison_ctx(
             ctx_ref,
             &name,
-            Some(res.compute_units_consumed as u64),
+            Some(res.compute_units_consumed),
             Some(result_str),
         );
     }
