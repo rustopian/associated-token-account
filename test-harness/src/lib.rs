@@ -1,3 +1,4 @@
+use compare_programs;
 use {
     mollusk_svm::{program::loader_keys::LOADER_V3, result::Check, Mollusk, MolluskContext},
     solana_account::Account,
@@ -12,7 +13,7 @@ use {
     spl_associated_token_account_interface::address::get_associated_token_address_with_program_id,
     spl_token_2022_interface::{extension::ExtensionType, state::Account as Token2022Account},
     spl_token_interface::{state::Account as TokenAccount, state::AccountState, state::Mint},
-    std::{collections::HashMap, vec::Vec},
+    std::{cell::Cell, cell::RefCell, collections::HashMap, rc::Rc, vec::Vec},
 };
 
 #[derive(Clone)]
@@ -44,6 +45,10 @@ pub fn setup_mollusk_with_programs(
 ) -> Mollusk {
     let ata_program_id = spl_associated_token_account_interface::program::id();
     let mut mollusk = Mollusk::new(&ata_program_id, ata_program_filename);
+    // enable log capture so observer can write logs
+    mollusk.logger = Some(Rc::new(RefCell::new(
+        solana_svm_log_collector::LogCollector::default(),
+    )));
 
     if *token_program_id == spl_token_2022_interface::id() {
         mollusk.add_program(token_program_id, "spl_token_2022", &LOADER_V3);
@@ -101,6 +106,7 @@ pub struct AtaTestHarness {
     pub mint_authority: Option<Pubkey>,
     pub ata_address: Option<Pubkey>,
     rng: Option<XorShift64>,
+    step_counter: Cell<usize>,
 }
 
 impl AtaTestHarness {
@@ -154,8 +160,35 @@ impl AtaTestHarness {
             &mint_program_id,
         );
 
-        self.ctx
-            .process_and_validate_instruction(&create_mint_ix, &[Check::success()]);
+        self.process_and_validate_with_observer(
+            "create_mint_account",
+            &create_mint_ix,
+            &[Check::success()],
+        );
+    }
+
+    fn next_step_name(&self, label: &str) -> String {
+        let next = self.step_counter.get().wrapping_add(1);
+        self.step_counter.set(next);
+        format!("harness-{:03} {}", next, label)
+    }
+
+    fn process_and_validate_with_observer(
+        &self,
+        label: &str,
+        instruction: &Instruction,
+        checks: &[Check],
+    ) {
+        let name = self.next_step_name(label);
+        compare_programs::set_current_ctx_ptr(&self.ctx);
+        self.ctx.process_and_validate_instruction_with_observer(
+            instruction,
+            checks,
+            move |ix, res, invoke_ctx| {
+                compare_programs::set_current_instruction_name(&name);
+                compare_programs::default_observer(ix, res, invoke_ctx);
+            },
+        );
     }
 
     /// Create a new test harness with the specified token program, ATA program filename, and deterministic seed
@@ -186,6 +219,7 @@ impl AtaTestHarness {
             mint_authority: None,
             ata_address: None,
             rng: Some(rng),
+            step_counter: Cell::new(0),
         };
         harness.ensure_account_exists_with_lamports(payer, 10_000_000_000);
         harness
@@ -206,6 +240,7 @@ impl AtaTestHarness {
             mint_authority: None,
             ata_address: None,
             rng: None,
+            step_counter: Cell::new(0),
         };
         harness.ensure_account_exists_with_lamports(payer, 10_000_000_000);
         harness
@@ -276,8 +311,11 @@ impl AtaTestHarness {
         )
         .expect("Failed to create initialize_transfer_fee_config instruction");
 
-        self.ctx
-            .process_and_validate_instruction(&init_fee_ix, &[Check::success()]);
+        self.process_and_validate_with_observer(
+            "initialize_transfer_fee",
+            &init_fee_ix,
+            &[Check::success()],
+        );
         self
     }
 
@@ -295,8 +333,11 @@ impl AtaTestHarness {
         )
         .expect("Failed to create initialize_mint instruction");
 
-        self.ctx
-            .process_and_validate_instruction(&init_mint_ix, &[Check::success()]);
+        self.process_and_validate_with_observer(
+            "initialize_mint",
+            &init_mint_ix,
+            &[Check::success()],
+        );
         self
     }
 
@@ -318,8 +359,7 @@ impl AtaTestHarness {
             CreateAtaInstructionType::default(),
         );
 
-        self.ctx
-            .process_and_validate_instruction(&instruction, &[Check::success()]);
+        self.process_and_validate_with_observer("create_ata", &instruction, &[Check::success()]);
 
         self.ata_address = Some(ata_address);
         self
@@ -359,8 +399,7 @@ impl AtaTestHarness {
         )
         .unwrap();
 
-        self.ctx
-            .process_and_validate_instruction(&mint_to_ix, &[Check::success()]);
+        self.process_and_validate_with_observer("mint_to", &mint_to_ix, &[Check::success()]);
     }
 
     /// Build a create ATA instruction for the current wallet and mint
@@ -405,8 +444,11 @@ impl AtaTestHarness {
             CreateAtaInstructionType::default(),
         );
 
-        self.ctx
-            .process_and_validate_instruction(&instruction, &[Check::success()]);
+        self.process_and_validate_with_observer(
+            "create_ata_for_owner",
+            &instruction,
+            &[Check::success()],
+        );
 
         ata_address
     }
@@ -461,7 +503,8 @@ impl AtaTestHarness {
             token_account_rent_exempt_balance()
         };
 
-        self.ctx.process_and_validate_instruction(
+        self.process_and_validate_with_observer(
+            "create_ata",
             &instruction,
             &[
                 Check::success(),
@@ -522,8 +565,11 @@ impl AtaTestHarness {
         // Replace the ATA address with the wrong account address
         instruction.accounts[1] = AccountMeta::new(wrong_account, false);
 
-        self.ctx
-            .process_and_validate_instruction(&instruction, &[Check::err(expected_error)]);
+        self.process_and_validate_with_observer(
+            "execute_with_wrong_account_address",
+            &instruction,
+            &[Check::err(expected_error)],
+        );
     }
 
     /// Create ATA instruction with custom modifications (for special cases like legacy empty data)
@@ -565,7 +611,8 @@ impl AtaTestHarness {
             token_account_rent_exempt_balance()
         };
 
-        self.ctx.process_and_validate_instruction(
+        self.process_and_validate_with_observer(
+            "custom_create_ata",
             &instruction,
             &[
                 Check::success(),

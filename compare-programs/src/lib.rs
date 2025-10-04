@@ -42,6 +42,10 @@ thread_local! {
     static TLS_INDEX: Cell<usize> = const { Cell::new(0) };
     static TLS_PENDING: RefCell<HashMap<(String, String), PendingRun>> = RefCell::new(HashMap::new());
 }
+thread_local! {
+    static TLS_CTX_PTR: RefCell<*const MolluskContext<HashMap<Pubkey, Account>>> = const { RefCell::new(std::ptr::null()) };
+    static TLS_INSTR_NAME: RefCell<String> = const { RefCell::new(String::new()) };
+}
 
 fn write_missing_and_extra(
     buffer: &mut String,
@@ -296,6 +300,134 @@ pub fn log_cu_and_byte_comparison_ctx(
             };
             append_row(&record);
             write_full_details(&record);
+        }
+    }
+}
+
+pub fn log_cu_and_byte_comparison_snapshot(
+    instruction_name: &str,
+    cu_used: Option<u64>,
+    result_str: Option<&str>,
+    account_snapshot: &BTreeMap<Pubkey, Account>,
+) {
+    let test_name = TLS_TEST_NAME.with(|n| n.borrow().clone());
+    let idx = TLS_INDEX.with(|c| c.get());
+
+    match idx {
+        0 => {
+            let _ = SNAPSHOT_A.set(account_snapshot.clone());
+            TLS_PENDING.with(|p| {
+                p.borrow_mut().insert(
+                    (test_name.clone(), instruction_name.to_string()),
+                    PendingRun {
+                        compute_units: cu_used,
+                        result: result_str.map(|s| s.to_string()),
+                        snapshot: account_snapshot.clone(),
+                    },
+                );
+            });
+        }
+        _ => {
+            let _ = SNAPSHOT_B.set(account_snapshot.clone());
+            let (mut compute_units_a, mut result_a, mut snapshot_a) = (None, None, BTreeMap::new());
+            TLS_PENDING.with(|p| {
+                if let Some(pending) = p
+                    .borrow_mut()
+                    .remove(&(test_name.clone(), instruction_name.to_string()))
+                {
+                    compute_units_a = pending.compute_units;
+                    result_a = pending.result;
+                    snapshot_a = pending.snapshot;
+                }
+            });
+            let byte_equal = if !snapshot_a.is_empty() {
+                Some(snapshot_a == *account_snapshot)
+            } else {
+                None
+            };
+            let record = ComparisonRecord {
+                test: test_name,
+                instruction: instruction_name.to_string(),
+                note: None,
+                compute_units_a,
+                compute_units_b: cu_used,
+                byte_equal,
+                result_a,
+                result_b: result_str.map(|s| s.to_string()),
+                accounts_a: snapshot_a,
+                accounts_b: account_snapshot.clone(),
+            };
+            append_row(&record);
+            write_full_details(&record);
+        }
+    }
+}
+
+pub fn log_instruction_logs(instruction: &str, logs: &[String]) {
+    let test_name = TLS_TEST_NAME.with(|n| n.borrow().clone());
+    let label = current_program_label().to_string();
+    write_logs_section(&test_name, instruction, &label, logs);
+}
+
+pub fn set_current_ctx_ptr(ctx: &MolluskContext<HashMap<Pubkey, Account>>) {
+    TLS_CTX_PTR.with(|c| *c.borrow_mut() = ctx as *const _);
+}
+
+pub fn set_current_instruction_name(name: &str) {
+    TLS_INSTR_NAME.with(|n| *n.borrow_mut() = name.to_string());
+}
+
+pub fn default_observer(
+    _ix: &solana_instruction::Instruction,
+    res: &mollusk_svm::result::InstructionResult,
+    invoke_ctx: &solana_program_runtime::invoke_context::InvokeContext,
+) {
+    if let Some(lc) = invoke_ctx.get_log_collector() {
+        let logs: Vec<String> = {
+            let br = lc.borrow();
+            br.get_recorded_content().to_vec()
+        };
+        let name = TLS_INSTR_NAME.with(|n| n.borrow().clone());
+        log_instruction_logs(&name, &logs);
+    }
+    let result_str: &str = if res.program_result.is_ok() {
+        "OK"
+    } else {
+        "ERR"
+    };
+    let name = TLS_INSTR_NAME.with(|n| n.borrow().clone());
+    let ctx_ptr = TLS_CTX_PTR.with(|c| *c.borrow());
+    if !ctx_ptr.is_null() {
+        let ctx_ref = unsafe { &*ctx_ptr };
+        log_cu_and_byte_comparison_ctx(
+            ctx_ref,
+            &name,
+            Some(res.compute_units_consumed as u64),
+            Some(result_str),
+        );
+    }
+}
+
+fn write_logs_section(test: &str, instruction: &str, program_label: &str, logs: &[String]) {
+    let mut buffer = String::new();
+    let _ = writeln!(
+        buffer,
+        "=== {} :: {} :: {} ===",
+        test, instruction, program_label
+    );
+    for line in logs.iter() {
+        let _ = writeln!(buffer, "{}", line);
+    }
+    buffer.push('\n');
+
+    let mut path = PathBuf::from("target/compare-programs");
+    if fs::create_dir_all(&path).is_err() {
+        return;
+    }
+    path.push("logs.txt");
+    if let Ok(_g) = WRITE_LOCK.get_or_init(|| Mutex::new(())).lock() {
+        if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
+            let _ = f.write_all(buffer.as_bytes());
         }
     }
 }

@@ -66,46 +66,72 @@ impl VisitMut for BodyRewriter {
                 "process_and_validate_instruction_with_observer",
                 node.method.span(),
             );
+            // Capture original args
+            let original_ix: Expr = node
+                .args
+                .first()
+                .cloned()
+                .expect("expected instruction arg");
+            let original_checks: Expr = node
+                .args
+                .iter()
+                .nth(1)
+                .cloned()
+                .expect("expected checks arg");
 
-            // receiver expression reference to pass into logger
             let receiver_expr: Expr = (*node.receiver).clone();
 
-            // Append observer closure as last argument
-            let observer: Expr = parse_quote!({
+            // Build wrapped first arg that sets TLS (name + ctx) and yields original ix
+            let first_arg_wrapped: Expr = parse_quote!({
                 let __cp_name = { __cp_step += 1; format!("step-{:03}", __cp_step) };
-                let __cp_ctx_ref = &#receiver_expr;
-                move |__cp_res, __cp_invoke_ctx| {
-                    let __cp_result_str: &str = if __cp_res.program_result.is_ok() { "OK" } else { "ERR" };
-                    compare_programs::log_cu_and_byte_comparison_ctx(
-                        __cp_ctx_ref,
-                        &__cp_name,
-                        Some(__cp_res.compute_units_consumed as u64),
-                        Some(__cp_result_str),
-                    );
-                }
+                compare_programs::set_current_instruction_name(&__cp_name);
+                compare_programs::set_current_ctx_ptr(&#receiver_expr);
+                #original_ix
             });
-            node.args.push(observer);
+
+            // Rebuild arg list: wrapped ix, original checks, function pointer observer
+            let mut new_args: syn::punctuated::Punctuated<Expr, syn::token::Comma> =
+                Default::default();
+            new_args.push(first_arg_wrapped);
+            new_args.push(original_checks);
+            new_args.push(parse_quote!(compare_programs::default_observer));
+            node.args = new_args;
         } else if method_ident == "process_and_validate_instruction_chain" {
             node.method = Ident::new(
                 "process_and_validate_instruction_chain_with_observer",
                 node.method.span(),
             );
 
+            // Wrap the first arg (the instruction slice) to set ctx before call
+            let original_slice: Expr = node
+                .args
+                .first()
+                .cloned()
+                .expect("expected instruction slice arg");
             let receiver_expr: Expr = (*node.receiver).clone();
-            let observer: Expr = parse_quote!({
-                let __cp_ctx_ref = &#receiver_expr;
-                move |__cp_step_ix: usize, __cp_res, __cp_invoke_ctx| {
-                    let __cp_name = format!("chain-step-{:03}", __cp_step_ix);
-                    let __cp_result_str: &str = if __cp_res.program_result.is_ok() { "OK" } else { "ERR" };
-                    compare_programs::log_cu_and_byte_comparison_ctx(
-                        __cp_ctx_ref,
-                        &__cp_name,
-                        Some(__cp_res.compute_units_consumed as u64),
-                        Some(__cp_result_str),
-                    );
-                }
+            let first_arg_wrapped: Expr = parse_quote!({
+                compare_programs::set_current_ctx_ptr(&#receiver_expr);
+                #original_slice
             });
-            node.args.push(observer);
+
+            // Replace first arg
+            if let Some(first) = node.args.first_mut() {
+                *first = first_arg_wrapped;
+            }
+
+            // Append minimal per-step observer
+            node.args.push(parse_quote!(
+                |__cp_step_ix: usize, __cp_res, __cp_invoke_ctx| {
+                    let __cp_name = format!("chain-step-{:03}", __cp_step_ix);
+                    compare_programs::set_current_instruction_name(&__cp_name);
+                    let __cp_dummy_ix = solana_instruction::Instruction {
+                        program_id: __cp_res.program_id,
+                        accounts: vec![],
+                        data: vec![],
+                    };
+                    compare_programs::default_observer(&__cp_dummy_ix, &__cp_res, __cp_invoke_ctx);
+                }
+            ));
         }
     }
 
