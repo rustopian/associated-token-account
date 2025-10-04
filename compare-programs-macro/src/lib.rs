@@ -7,13 +7,19 @@ pub fn compare_programs(_args: TokenStream, input: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(input as ItemFn);
     let fn_name = input_fn.sig.ident.clone();
     let vis = input_fn.vis.clone();
-    let mut block = (*input_fn.block).clone();
+    let block = (*input_fn.block).clone();
 
     // Rewrite calls to Pubkey::new_unique() into compare_programs::new_unique_pubkey()
     // Lightweight, ad-hoc token replacement inside the block string. This is a fallback if syn visit_mut isn't available.
-    let mut ts = quote!{ #block }.to_string();
-    ts = ts.replace("solana_pubkey :: Pubkey :: new_unique", "compare_programs :: new_unique_pubkey");
-    ts = ts.replace("Pubkey :: new_unique", "compare_programs :: new_unique_pubkey");
+    let mut ts = quote! { #block }.to_string();
+    ts = ts.replace(
+        "solana_pubkey :: Pubkey :: new_unique",
+        "compare_programs :: new_unique_pubkey",
+    );
+    ts = ts.replace(
+        "Pubkey :: new_unique",
+        "compare_programs :: new_unique_pubkey",
+    );
     let block: syn::Block = syn::parse_str(&format!("{{ {ts} }}")).unwrap_or(*input_fn.block);
 
     let prog_a = "spl_associated_token_account";
@@ -42,5 +48,3 @@ pub fn compare_programs(_args: TokenStream, input: TokenStream) -> TokenStream {
 
     TokenStream::from(wrapped)
 }
-
-
