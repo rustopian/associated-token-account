@@ -433,10 +433,7 @@ impl AtaTestHarness {
     }
 
     /// Build and execute a create ATA instruction
-    pub fn create_ata(
-        &mut self,
-        instruction_type: CreateAtaInstructionType,
-    ) -> Pubkey {
+    pub fn create_ata(&mut self, instruction_type: CreateAtaInstructionType) -> Pubkey {
         let wallet = self.wallet.expect("Wallet must be set");
         let mint = self.mint.expect("Mint must be set");
         let ata_address =

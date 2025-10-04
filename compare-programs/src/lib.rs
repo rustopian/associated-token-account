@@ -27,10 +27,16 @@ fn write_missing_and_extra(
     accounts_a: &BTreeMap<Pubkey, Account>,
     accounts_b: &BTreeMap<Pubkey, Account>,
 ) {
-    for pubkey in accounts_a.keys().filter(|pubkey| !accounts_b.contains_key(*pubkey)) {
+    for pubkey in accounts_a
+        .keys()
+        .filter(|pubkey| !accounts_b.contains_key(*pubkey))
+    {
         let _ = writeln!(buffer, "- Missing in B: {}", pubkey);
     }
-    for pubkey in accounts_b.keys().filter(|pubkey| !accounts_a.contains_key(*pubkey)) {
+    for pubkey in accounts_b
+        .keys()
+        .filter(|pubkey| !accounts_a.contains_key(*pubkey))
+    {
         let _ = writeln!(buffer, "+ Extra in B: {}", pubkey);
     }
 }
@@ -44,19 +50,28 @@ fn write_account_changes(
         if let Some(account_b) = accounts_b.get(pubkey) {
             let mut diffs: Vec<String> = Vec::new();
             if account_a.lamports != account_b.lamports {
-                diffs.push(format!("lamports: {} -> {}", account_a.lamports, account_b.lamports));
+                diffs.push(format!(
+                    "lamports: {} -> {}",
+                    account_a.lamports, account_b.lamports
+                ));
             }
             if account_a.owner != account_b.owner {
                 diffs.push(format!("owner: {} -> {}", account_a.owner, account_b.owner));
             }
             if account_a.data != account_b.data {
                 if account_a.data.len() != account_b.data.len() {
-                    diffs.push(format!("data_len: {} -> {}", account_a.data.len(), account_b.data.len()));
+                    diffs.push(format!(
+                        "data_len: {} -> {}",
+                        account_a.data.len(),
+                        account_b.data.len()
+                    ));
                 } else {
                     diffs.push("data: bytes differ".to_string());
                     let mut first_difference_index: Option<usize> = None;
                     let mut total_diffs: usize = 0;
-                    for (i, (byte_a, byte_b)) in account_a.data.iter().zip(account_b.data.iter()).enumerate() {
+                    for (i, (byte_a, byte_b)) in
+                        account_a.data.iter().zip(account_b.data.iter()).enumerate()
+                    {
                         if byte_a != byte_b {
                             total_diffs += 1;
                             if first_difference_index.is_none() {
@@ -69,16 +84,26 @@ fn write_account_changes(
                     let end = (start + 64).min(account_a.data.len());
                     let a_hex_window = hex_window(&account_a.data, start, end);
                     let b_hex_window = hex_window(&account_b.data, start, end);
-                    let _ = writeln!(buffer, "  data_diff: first_at={}, differing_bytes={}", first_index, total_diffs);
+                    let _ = writeln!(
+                        buffer,
+                        "  data_diff: first_at={}, differing_bytes={}",
+                        first_index, total_diffs
+                    );
                     let _ = writeln!(buffer, "  A: {}", a_hex_window);
                     let _ = writeln!(buffer, "  B: {}", b_hex_window);
                 }
             }
             if account_a.executable != account_b.executable {
-                diffs.push(format!("executable: {} -> {}", account_a.executable, account_b.executable));
+                diffs.push(format!(
+                    "executable: {} -> {}",
+                    account_a.executable, account_b.executable
+                ));
             }
             if account_a.rent_epoch != account_b.rent_epoch {
-                diffs.push(format!("rent_epoch: {} -> {}", account_a.rent_epoch, account_b.rent_epoch));
+                diffs.push(format!(
+                    "rent_epoch: {} -> {}",
+                    account_a.rent_epoch, account_b.rent_epoch
+                ));
             }
             if !diffs.is_empty() {
                 let _ = writeln!(buffer, "* Changed {}: {}", pubkey, diffs.join(", "));
