@@ -1,3 +1,4 @@
+use compare_programs::compare_programs;
 use {
     ata_mollusk_harness::AtaTestHarness,
     mollusk_svm::result::Check,
@@ -10,7 +11,7 @@ use {
     },
 };
 
-#[test]
+#[compare_programs]
 fn test_associated_token_account_with_transfer_fees() {
     let maximum_fee = 100;
     let transfer_fee_basis_points = 1_000;

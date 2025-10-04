@@ -1,3 +1,4 @@
+use compare_programs::compare_programs;
 use {
     ata_mollusk_harness::{
         build_create_ata_instruction, token_2022_immutable_owner_account_len,
@@ -8,7 +9,7 @@ use {
     solana_pubkey::Pubkey,
 };
 
-#[test]
+#[compare_programs]
 fn success_account_exists() {
     let mut harness =
         AtaTestHarness::new(&spl_token_2022_interface::id()).with_wallet_and_mint(1_000_000, 6);
@@ -64,7 +65,7 @@ fn success_account_exists() {
     );
 }
 
-#[test]
+#[compare_programs]
 fn fail_account_exists_with_wrong_owner() {
     let harness =
         AtaTestHarness::new(&spl_token_2022_interface::id()).with_wallet_and_mint(1_000_000, 6);
@@ -87,7 +88,7 @@ fn fail_account_exists_with_wrong_owner() {
     );
 }
 
-#[test]
+#[compare_programs]
 fn fail_non_ata() {
     let harness =
         AtaTestHarness::new(&spl_token_2022_interface::id()).with_wallet_and_mint(1_000_000, 6);

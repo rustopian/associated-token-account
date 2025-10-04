@@ -1,13 +1,14 @@
 use ata_mollusk_harness::{AtaTestHarness, CreateAtaInstructionType};
+use compare_programs::compare_programs;
 
-#[test]
+#[compare_programs]
 fn success_create() {
     let mut harness =
         AtaTestHarness::new(&spl_token_interface::id()).with_wallet_and_mint(1_000_000, 6);
     harness.create_ata(CreateAtaInstructionType::default());
 }
 
-#[test]
+#[compare_programs]
 fn success_using_deprecated_instruction_creator() {
     let mut harness =
         AtaTestHarness::new(&spl_token_interface::id()).with_wallet_and_mint(1_000_000, 6);

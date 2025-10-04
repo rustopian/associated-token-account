@@ -1,3 +1,4 @@
+use compare_programs::compare_programs;
 use {
     ata_mollusk_harness::AtaTestHarness,
     mollusk_svm::result::Check,
@@ -147,12 +148,12 @@ fn test_fail_wrong_address_derivation_owner(token_program_id: &Pubkey) {
     );
 }
 
-#[test]
+#[compare_programs]
 fn success_same_mint_2022() {
     test_recover_nested_same_mint(&spl_token_2022_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn success_same_mint() {
     test_recover_nested_same_mint(&spl_token_interface::id());
 }
@@ -214,56 +215,56 @@ fn test_recover_nested_different_mints(program_id: &Pubkey) {
     assert_eq!(destination_amount, TEST_MINT_AMOUNT);
 }
 
-#[test]
+#[compare_programs]
 fn success_different_mints() {
     test_recover_nested_different_mints(&spl_token_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn success_different_mints_2022() {
     test_recover_nested_different_mints(&spl_token_2022_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn fail_missing_wallet_signature_2022() {
     test_fail_missing_wallet_signature(&spl_token_2022_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn fail_missing_wallet_signature() {
     test_fail_missing_wallet_signature(&spl_token_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn fail_wrong_signer_2022() {
     test_fail_wrong_signer(&spl_token_2022_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn fail_wrong_signer() {
     test_fail_wrong_signer(&spl_token_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn fail_not_nested_2022() {
     test_fail_not_nested(&spl_token_2022_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn fail_not_nested() {
     test_fail_not_nested(&spl_token_interface::id());
 }
-#[test]
+#[compare_programs]
 fn fail_wrong_address_derivation_owner_2022() {
     test_fail_wrong_address_derivation_owner(&spl_token_2022_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn fail_wrong_address_derivation_owner() {
     test_fail_wrong_address_derivation_owner(&spl_token_interface::id());
 }
 
-#[test]
+#[compare_programs]
 fn fail_owner_account_does_not_exist() {
     let mut harness = AtaTestHarness::new(&spl_token_2022_interface::id())
         .with_wallet(1_000_000)
@@ -295,7 +296,7 @@ fn fail_owner_account_does_not_exist() {
     );
 }
 
-#[test]
+#[compare_programs]
 fn fail_wrong_spl_token_program() {
     let mut harness = AtaTestHarness::new(&spl_token_2022_interface::id())
         .with_wallet(1_000_000)
@@ -321,7 +322,7 @@ fn fail_wrong_spl_token_program() {
     );
 }
 
-#[test]
+#[compare_programs]
 fn fail_destination_not_wallet_ata() {
     let mut harness = AtaTestHarness::new(&spl_token_2022_interface::id())
         .with_wallet(1_000_000)

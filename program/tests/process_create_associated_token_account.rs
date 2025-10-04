@@ -1,3 +1,4 @@
+use compare_programs::compare_programs;
 use {
     ata_mollusk_harness::{
         build_create_ata_instruction, token_2022_immutable_owner_rent_exempt_balance,
@@ -11,14 +12,14 @@ use {
     spl_associated_token_account_interface::address::get_associated_token_address_with_program_id,
 };
 
-#[test]
+#[compare_programs]
 fn test_associated_token_address() {
     let mut harness =
         AtaTestHarness::new(&spl_token_2022_interface::id()).with_wallet_and_mint(1_000_000, 6);
     harness.create_ata(CreateAtaInstructionType::default());
 }
 
-#[test]
+#[compare_programs]
 fn test_create_with_fewer_lamports() {
     let harness =
         AtaTestHarness::new(&spl_token_2022_interface::id()).with_wallet_and_mint(1_000_000, 6);
@@ -56,7 +57,7 @@ fn test_create_with_fewer_lamports() {
     );
 }
 
-#[test]
+#[compare_programs]
 fn test_create_with_excess_lamports() {
     let harness =
         AtaTestHarness::new(&spl_token_2022_interface::id()).with_wallet_and_mint(1_000_000, 6);
@@ -94,7 +95,7 @@ fn test_create_with_excess_lamports() {
     );
 }
 
-#[test]
+#[compare_programs]
 fn test_create_account_mismatch() {
     let harness =
         AtaTestHarness::new(&spl_token_2022_interface::id()).with_wallet_and_mint(1_000_000, 6);
@@ -131,7 +132,7 @@ fn test_create_account_mismatch() {
     }
 }
 
-#[test]
+#[compare_programs]
 fn test_create_associated_token_account_using_legacy_implicit_instruction() {
     let mut harness =
         AtaTestHarness::new(&spl_token_2022_interface::id()).with_wallet_and_mint(1_000_000, 6);
