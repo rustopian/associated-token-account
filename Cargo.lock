@@ -374,7 +374,7 @@ dependencies = [
 name = "ata-mollusk-harness"
 version = "1.0.0"
 dependencies = [
- "mollusk-svm",
+ "mollusk-svm 0.6.3",
  "mollusk-svm-programs-token",
  "solana-account",
  "solana-instruction",
@@ -645,7 +645,7 @@ name = "compare-programs"
 version = "0.1.0"
 dependencies = [
  "compare-programs-macro",
- "mollusk-svm",
+ "mollusk-svm 0.6.3",
  "once_cell",
  "serde",
  "serde_json",
@@ -1783,9 +1783,50 @@ dependencies = [
  "agave-precompiles",
  "agave-syscalls",
  "bincode",
- "mollusk-svm-error",
- "mollusk-svm-keys",
- "mollusk-svm-result",
+ "mollusk-svm-error 0.6.2",
+ "mollusk-svm-keys 0.6.2",
+ "mollusk-svm-result 0.6.2",
+ "solana-account",
+ "solana-bpf-loader-program",
+ "solana-clock",
+ "solana-compute-budget",
+ "solana-epoch-rewards",
+ "solana-epoch-schedule",
+ "solana-hash",
+ "solana-instruction",
+ "solana-instruction-error",
+ "solana-loader-v3-interface",
+ "solana-loader-v4-interface",
+ "solana-logger",
+ "solana-precompile-error",
+ "solana-program-error",
+ "solana-program-runtime",
+ "solana-pubkey",
+ "solana-rent",
+ "solana-sdk-ids",
+ "solana-slot-hashes",
+ "solana-stake-interface",
+ "solana-svm-callback",
+ "solana-svm-log-collector",
+ "solana-svm-timings",
+ "solana-system-program",
+ "solana-sysvar",
+ "solana-sysvar-id",
+ "solana-transaction-context",
+]
+
+[[package]]
+name = "mollusk-svm"
+version = "0.6.3"
+source = "git+https://github.com/rustopian/mollusk.git?branch=process-instruction-with-observer#dafe44b16700d02edd05ee8747063f73106529ac"
+dependencies = [
+ "agave-feature-set",
+ "agave-precompiles",
+ "agave-syscalls",
+ "bincode",
+ "mollusk-svm-error 0.6.3",
+ "mollusk-svm-keys 0.6.3",
+ "mollusk-svm-result 0.6.3",
  "solana-account",
  "solana-bpf-loader-program",
  "solana-clock",
@@ -1826,12 +1867,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "mollusk-svm-error"
+version = "0.6.3"
+source = "git+https://github.com/rustopian/mollusk.git?branch=process-instruction-with-observer#dafe44b16700d02edd05ee8747063f73106529ac"
+dependencies = [
+ "solana-pubkey",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "mollusk-svm-keys"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "021e2de108f4b6774809fbc743bbbc39ed1824352eef07ee34497a5cbbd2f252"
 dependencies = [
- "mollusk-svm-error",
+ "mollusk-svm-error 0.6.2",
+ "solana-account",
+ "solana-instruction",
+ "solana-pubkey",
+ "solana-transaction-context",
+]
+
+[[package]]
+name = "mollusk-svm-keys"
+version = "0.6.3"
+source = "git+https://github.com/rustopian/mollusk.git?branch=process-instruction-with-observer#dafe44b16700d02edd05ee8747063f73106529ac"
+dependencies = [
+ "mollusk-svm-error 0.6.3",
  "solana-account",
  "solana-instruction",
  "solana-pubkey",
@@ -1844,7 +1906,7 @@ version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a7e8c32a28672340d54b7b0c4887e755ede53e86dfff09d80e7c62153c43483"
 dependencies = [
- "mollusk-svm",
+ "mollusk-svm 0.6.2",
  "solana-account",
  "solana-program-pack",
  "solana-pubkey",
@@ -1858,6 +1920,18 @@ name = "mollusk-svm-result"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8ab0b88a7134b0adaa60b8a4789b8be4c8ea57270f64685ac5ecff24f18e1c5"
+dependencies = [
+ "solana-account",
+ "solana-instruction",
+ "solana-program-error",
+ "solana-pubkey",
+ "solana-rent",
+]
+
+[[package]]
+name = "mollusk-svm-result"
+version = "0.6.3"
+source = "git+https://github.com/rustopian/mollusk.git?branch=process-instruction-with-observer#dafe44b16700d02edd05ee8747063f73106529ac"
 dependencies = [
  "solana-account",
  "solana-instruction",
@@ -3987,7 +4061,7 @@ dependencies = [
  "ata-mollusk-harness",
  "borsh",
  "compare-programs",
- "mollusk-svm",
+ "mollusk-svm 0.6.3",
  "num-derive",
  "num-traits",
  "solana-address",

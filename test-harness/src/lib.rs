@@ -177,7 +177,7 @@ impl AtaTestHarness {
         };
         let ctx = mollusk.with_context(HashMap::new());
 
-        let mut harness = Self {
+        let harness = Self {
             ctx,
             token_program_id: *token_program_id,
             payer,
@@ -432,11 +432,11 @@ impl AtaTestHarness {
         self.with_wallet(wallet_lamports).with_mint(decimals)
     }
 
-    /// Build and execute a create ATA instruction, returning the resulting InstructionResult
+    /// Build and execute a create ATA instruction
     pub fn create_ata(
         &mut self,
         instruction_type: CreateAtaInstructionType,
-    ) -> (Pubkey, mollusk_svm::result::InstructionResult) {
+    ) -> Pubkey {
         let wallet = self.wallet.expect("Wallet must be set");
         let mint = self.mint.expect("Mint must be set");
         let ata_address =
@@ -464,7 +464,7 @@ impl AtaTestHarness {
             token_account_rent_exempt_balance()
         };
 
-        let result = self.ctx.process_and_validate_instruction(
+        self.ctx.process_and_validate_instruction(
             &instruction,
             &[
                 Check::success(),
@@ -477,7 +477,7 @@ impl AtaTestHarness {
         );
 
         self.ata_address = Some(ata_address);
-        (ata_address, result)
+        ata_address
     }
 
     /// Create a token account with wrong owner at the ATA address (for error testing)
