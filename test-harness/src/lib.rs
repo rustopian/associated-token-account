@@ -245,6 +245,11 @@ impl AtaTestHarness {
         harness
     }
 
+    /// Create a new test harness using an explicit seed for deterministic key material
+    pub fn new_with_seed(token_program_id: &Pubkey, seed: u64) -> Self {
+        Self::new_with_program_and_seed(token_program_id, "spl_associated_token_account", seed)
+    }
+
     /// Add a wallet with the specified lamports
     pub fn with_wallet(mut self, lamports: u64) -> Self {
         let wallet = self.next_pubkey();

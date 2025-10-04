@@ -4,14 +4,16 @@ use compare_programs::compare_programs;
 #[compare_programs]
 fn success_create() {
     let mut harness =
-        AtaTestHarness::new(&spl_token_interface::id()).with_wallet_and_mint(1_000_000, 6);
+        AtaTestHarness::new_with_seed(&spl_token_interface::id(), compare_programs::seed())
+            .with_wallet_and_mint(1_000_000, 6);
     harness.create_ata(CreateAtaInstructionType::default());
 }
 
 #[compare_programs]
 fn success_using_deprecated_instruction_creator() {
     let mut harness =
-        AtaTestHarness::new(&spl_token_interface::id()).with_wallet_and_mint(1_000_000, 6);
+        AtaTestHarness::new_with_seed(&spl_token_interface::id(), compare_programs::seed())
+            .with_wallet_and_mint(1_000_000, 6);
 
     harness.create_and_check_ata_with_custom_instruction(
         CreateAtaInstructionType::default(),

@@ -11,7 +11,8 @@ use {
 #[compare_programs]
 fn success_account_exists() {
     let mut harness =
-        AtaTestHarness::new(&spl_token_2022_interface::id()).with_wallet_and_mint(1_000_000, 6);
+        AtaTestHarness::new_with_seed(&spl_token_2022_interface::id(), compare_programs::seed())
+            .with_wallet_and_mint(1_000_000, 6);
     // CreateIdempotent will create the ATA if it doesn't exist
     let ata_address = harness.create_ata(CreateAtaInstructionType::CreateIdempotent { bump: None });
     let associated_account = harness

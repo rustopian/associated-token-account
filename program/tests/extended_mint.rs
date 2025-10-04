@@ -15,9 +15,10 @@ use {
 fn test_associated_token_account_with_transfer_fees() {
     let maximum_fee = 100;
     let transfer_fee_basis_points = 1_000;
-    let (harness, receiver_wallet) = AtaTestHarness::new(&spl_token_2022_interface::id())
-        .with_wallet(1_000_000)
-        .with_additional_wallet(1_000_000);
+    let (harness, receiver_wallet) =
+        AtaTestHarness::new_with_seed(&spl_token_2022_interface::id(), compare_programs::seed())
+            .with_wallet(1_000_000)
+            .with_additional_wallet(1_000_000);
     let mut harness = harness
         .with_mint_with_extensions(&[ExtensionType::TransferFeeConfig])
         .initialize_transfer_fee(transfer_fee_basis_points, maximum_fee)

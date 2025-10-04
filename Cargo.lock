@@ -553,6 +553,7 @@ dependencies = [
 name = "compare-programs"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "compare-programs-macro",
  "mollusk-svm",
  "once_cell",
@@ -562,6 +563,8 @@ dependencies = [
  "solana-instruction",
  "solana-program-runtime",
  "solana-pubkey",
+ "solana-system-interface",
+ "spl-associated-token-account-interface 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

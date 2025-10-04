@@ -1,8 +1,10 @@
+use bincode;
 pub use compare_programs_macro::compare_programs;
 use mollusk_svm::MolluskContext;
 use once_cell::sync::OnceCell;
 use solana_account::Account;
 use solana_pubkey::Pubkey;
+use solana_system_interface::instruction::SystemInstruction;
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write as FmtWrite;
@@ -23,7 +25,7 @@ struct PendingRun {
 struct ComparisonRecord {
     test: String,
     instruction: String,
-    note: Option<String>,
+    context: Option<String>,
     compute_units_a: Option<u64>,
     compute_units_b: Option<u64>,
     byte_equal: Option<bool>,
@@ -176,9 +178,9 @@ where
         return;
     }
     path.push(filename);
-    let header_needed = fs::metadata(&path).map(|m| m.len() == 0).unwrap_or(true);
     if let Ok(_g) = WRITE_LOCK.get_or_init(|| Mutex::new(())).lock() {
         if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
+            let header_needed = f.metadata().map(|m| m.len() == 0).unwrap_or(true);
             write_fn(&mut f, header_needed);
         }
     }
@@ -215,7 +217,7 @@ fn emit_report_event(event: ReportEvent) {
                         .unwrap_or_else(|| ("A".to_string(), "B".to_string()));
                     let _ = f.write_all(
                         format!(
-                            "test,instruction,note,{a} CUs,{b} CUs,ByteEqual,{a} Result,{b} Result\n"
+                            "test,instruction,context,{a} CUs,{b} CUs,ByteEqual,{a} Result,{b} Result\n"
                         )
                         .as_bytes(),
                     );
@@ -229,7 +231,7 @@ fn emit_report_event(event: ReportEvent) {
                         "{},{},{},{},{},{},{},{}\n",
                         record.test,
                         record.instruction,
-                        record.note.as_deref().unwrap_or_default(),
+                        record.context.as_deref().unwrap_or_default(),
                         record
                             .compute_units_a
                             .map(|v| v.to_string())
@@ -269,6 +271,9 @@ fn emit_report_event(event: ReportEvent) {
                     .map(|b| if b { "100%" } else { "DIFF" })
                     .unwrap_or("")
             );
+            if let Some(ctx) = record.context.as_deref() {
+                let _ = writeln!(buffer, "Context: {}", ctx);
+            }
             if let Some(result_a_str) = record.result_a.as_deref() {
                 let _ = writeln!(buffer, "Result A: {}", result_a_str);
             }
@@ -414,7 +419,7 @@ fn finalize_comparison(
             let record = ComparisonRecord {
                 test: test_name,
                 instruction: instruction_name.to_string(),
-                note: None,
+                context: None,
                 compute_units_a,
                 compute_units_b: cu_used,
                 byte_equal,
@@ -476,7 +481,7 @@ pub fn set_current_instruction_name(name: &str) {
 }
 
 pub fn default_observer(
-    _ix: &solana_instruction::Instruction,
+    ix: &solana_instruction::Instruction,
     res: &mollusk_svm::result::InstructionResult,
     invoke_ctx: &solana_program_runtime::invoke_context::InvokeContext,
 ) {
@@ -493,16 +498,107 @@ pub fn default_observer(
     } else {
         "ERR"
     };
-    let name = TLS_INSTR_NAME.with(|n| n.borrow().clone());
+    // Parse a human-readable instruction name from the incoming instruction
+    let parsed_instr: String = if ix.program_id == solana_system_interface::program::id() {
+        bincode::deserialize::<SystemInstruction>(&ix.data)
+            .map(|si| match si {
+                SystemInstruction::CreateAccount { .. } => "CreateAccount".to_string(),
+                SystemInstruction::Assign { .. } => "Assign".to_string(),
+                SystemInstruction::Transfer { .. } => "Transfer".to_string(),
+                SystemInstruction::CreateAccountWithSeed { .. } => {
+                    "CreateAccountWithSeed".to_string()
+                }
+                SystemInstruction::AdvanceNonceAccount => "AdvanceNonceAccount".to_string(),
+                SystemInstruction::WithdrawNonceAccount { .. } => {
+                    "WithdrawNonceAccount".to_string()
+                }
+                SystemInstruction::InitializeNonceAccount(..) => {
+                    "InitializeNonceAccount".to_string()
+                }
+                SystemInstruction::AuthorizeNonceAccount(..) => "AuthorizeNonceAccount".to_string(),
+                SystemInstruction::Allocate { .. } => "Allocate".to_string(),
+                SystemInstruction::AllocateWithSeed { .. } => "AllocateWithSeed".to_string(),
+                SystemInstruction::AssignWithSeed { .. } => "AssignWithSeed".to_string(),
+                SystemInstruction::TransferWithSeed { .. } => "TransferWithSeed".to_string(),
+                _ => "System".to_string(),
+            })
+            .unwrap_or_else(|_| "System".to_string())
+    } else if ix.program_id == spl_associated_token_account_interface::program::id() {
+        // Our compare focus; label as ATA create variants
+        if ix.data.first().copied() == Some(0) {
+            "Create".to_string()
+        } else if ix.data.first().copied() == Some(1) {
+            "CreateIdempotent".to_string()
+        } else {
+            "AssociatedTokenAccount".to_string()
+        }
+    } else {
+        // Fallback: derive a readable name from the harness context label
+        let ctx = TLS_INSTR_NAME.with(|n| n.borrow().clone());
+        if let Some((_prefix, rest)) = ctx.split_once(' ') {
+            rest.to_string()
+        } else {
+            ctx
+        }
+    };
+    let context_label = TLS_INSTR_NAME.with(|n| n.borrow().clone());
     let ctx_ptr = TLS_CTX_PTR.with(|c| *c.borrow());
     if !ctx_ptr.is_null() {
         let ctx_ref = unsafe { &*ctx_ptr };
-        log_cu_and_byte_comparison_ctx(
-            ctx_ref,
-            &name,
-            Some(res.compute_units_consumed),
-            Some(result_str),
-        );
+        // Thread parsed instruction as the instruction field and use harness step label as context
+        let store = ctx_ref.account_store.borrow();
+        let mut account_snapshot: BTreeMap<Pubkey, Account> = BTreeMap::new();
+        for (pubkey, account) in store.iter() {
+            account_snapshot.insert(*pubkey, account.clone());
+        }
+        let test_name = TLS_TEST_NAME.with(|n| n.borrow().clone());
+        let idx = TLS_INDEX.with(|c| c.get());
+        match idx {
+            0 => {
+                TLS_PENDING.with(|p| {
+                    p.borrow_mut().insert(
+                        (test_name.clone(), context_label.clone()),
+                        PendingRun {
+                            compute_units: Some(res.compute_units_consumed),
+                            result: Some(result_str.to_string()),
+                            snapshot: account_snapshot,
+                        },
+                    );
+                });
+            }
+            _ => {
+                let (mut compute_units_a, mut result_a, mut snapshot_a) =
+                    (None, None, BTreeMap::new());
+                TLS_PENDING.with(|p| {
+                    if let Some(pending) = p
+                        .borrow_mut()
+                        .remove(&(test_name.clone(), context_label.clone()))
+                    {
+                        compute_units_a = pending.compute_units;
+                        result_a = pending.result;
+                        snapshot_a = pending.snapshot;
+                    }
+                });
+                let byte_equal = if !snapshot_a.is_empty() {
+                    Some(snapshot_a == account_snapshot)
+                } else {
+                    None
+                };
+                let record = ComparisonRecord {
+                    test: test_name,
+                    instruction: parsed_instr,
+                    context: Some(context_label),
+                    compute_units_a,
+                    compute_units_b: Some(res.compute_units_consumed),
+                    byte_equal,
+                    result_a,
+                    result_b: Some(result_str.to_string()),
+                    accounts_a: snapshot_a,
+                    accounts_b: account_snapshot,
+                };
+                emit_report_event(ReportEvent::Comparison { record });
+            }
+        }
     }
 }
 
