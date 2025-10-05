@@ -1,7 +1,7 @@
 use ata_mollusk_harness::{AtaTestHarness, CreateAtaInstructionType};
 use compare_programs::compare_programs;
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn success_create() {
     let mut harness =
         AtaTestHarness::new_with_seed(&spl_token_interface::id(), compare_programs::seed())
@@ -9,7 +9,7 @@ fn success_create() {
     harness.create_ata(CreateAtaInstructionType::default());
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn success_using_deprecated_instruction_creator() {
     let mut harness =
         AtaTestHarness::new_with_seed(&spl_token_interface::id(), compare_programs::seed())

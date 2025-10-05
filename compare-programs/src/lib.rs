@@ -1,5 +1,7 @@
 use bincode;
+use chrono::{Datelike, Timelike, Utc};
 pub use compare_programs_macro::compare_programs;
+pub use compare_programs_macro::instrument;
 use mollusk_svm::MolluskContext;
 use once_cell::sync::OnceCell;
 use solana_account::Account;
@@ -23,9 +25,11 @@ struct PendingRun {
 
 #[derive(Clone)]
 struct ComparisonRecord {
+    suite: String,
     test: String,
     instruction: String,
     context: Option<String>,
+    instruction_detail: Option<String>,
     compute_units_a: Option<u64>,
     compute_units_b: Option<u64>,
     byte_equal: Option<bool>,
@@ -47,6 +51,8 @@ thread_local! {
 thread_local! {
     static TLS_CTX_PTR: RefCell<*const MolluskContext<HashMap<Pubkey, Account>>> = const { RefCell::new(std::ptr::null()) };
     static TLS_INSTR_NAME: RefCell<String> = const { RefCell::new(String::new()) };
+    static TLS_SUITE_NAME: RefCell<String> = const { RefCell::new(String::new()) };
+    static TLS_FILTER_PROGRAM_IDS: RefCell<Vec<Pubkey>> = const { RefCell::new(Vec::new()) };
 }
 
 fn write_missing_and_extra(
@@ -154,6 +160,7 @@ fn write_accounts_section(buffer: &mut String, title: &str, accounts: &BTreeMap<
 }
 
 static WRITE_LOCK: OnceCell<Mutex<()>> = OnceCell::new();
+static RUN_PREFIX: OnceCell<String> = OnceCell::new();
 
 thread_local! { static TLS_RNG: RefCell<Option<u64>> = const { RefCell::new(None) }; }
 
@@ -177,13 +184,71 @@ where
     if fs::create_dir_all(&path).is_err() {
         return;
     }
-    path.push(filename);
+    let prefix = RUN_PREFIX.get_or_init(|| get_or_make_session_prefix());
+    path.push(format!("{}-{}", prefix, filename));
     if let Ok(_g) = WRITE_LOCK.get_or_init(|| Mutex::new(())).lock() {
         if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
             let header_needed = f.metadata().map(|m| m.len() == 0).unwrap_or(true);
             write_fn(&mut f, header_needed);
         }
     }
+}
+
+fn current_run_prefix() -> String {
+    let git_hash = std::env::var("GIT_COMMIT")
+        .ok()
+        .or_else(|| git_rev_parse_head())
+        .unwrap_or_else(|| "no-git".to_string());
+    let ts = Utc::now();
+    let short = format!(
+        "{:04}{:02}{:02}-{:02}{:02}{:02}",
+        ts.year(),
+        ts.month(),
+        ts.day(),
+        ts.hour(),
+        ts.minute(),
+        ts.second()
+    );
+    format!("{}-{}", git_hash, short)
+}
+
+fn git_rev_parse_head() -> Option<String> {
+    use std::process::Command;
+    if let Ok(output) = Command::new("git")
+        .args(["rev-parse", "--short", "HEAD"])
+        .output()
+    {
+        if output.status.success() {
+            return Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
+        }
+    }
+    None
+}
+
+fn get_or_make_session_prefix() -> String {
+    let dir = PathBuf::from("target/compare-programs");
+    let _ = fs::create_dir_all(&dir);
+    let mut path = dir.clone();
+    path.push("run_prefix.txt");
+    if let Ok(bytes) = fs::read(&path) {
+        if let Ok(existing) = String::from_utf8(bytes) {
+            let trimmed = existing.trim().to_string();
+            if !trimmed.is_empty() {
+                return trimmed;
+            }
+        }
+    }
+    let prefix = current_run_prefix();
+    // Try atomic create
+    if let Ok(mut f) = OpenOptions::new().create_new(true).write(true).open(&path) {
+        let _ = f.write_all(prefix.as_bytes());
+        let _ = f.sync_all();
+        return prefix;
+    }
+    // If someone else created it, read back
+    fs::read_to_string(&path)
+        .map(|s| s.trim().to_string())
+        .unwrap_or(prefix)
 }
 
 fn emit_report_event(event: ReportEvent) {
@@ -209,15 +274,15 @@ fn emit_report_event(event: ReportEvent) {
             });
         }
         ReportEvent::Comparison { record } => {
-            with_compare_programs_file("report.csv", |f, header_needed| {
+            with_compare_programs_file("summary.csv", |f, header_needed| {
                 if header_needed {
-                    let (a, b) = PROGRAM_LABELS
+                    let (a, b) = PROGRAM_FILENAMES
                         .get()
                         .cloned()
                         .unwrap_or_else(|| ("A".to_string(), "B".to_string()));
                     let _ = f.write_all(
                         format!(
-                            "test,instruction,context,{a} CUs,{b} CUs,ByteEqual,{a} Result,{b} Result\n"
+                            "suite,test,instruction,context,{a} CUs,{b} CUs,ByteEqual,{a} Result,{b} Result\n"
                         )
                         .as_bytes(),
                     );
@@ -228,7 +293,8 @@ fn emit_report_event(event: ReportEvent) {
                     .unwrap_or("");
                 let _ = f.write_all(
                     format!(
-                        "{},{},{},{},{},{},{},{}\n",
+                        "{},{},{},{},{},{},{},{},{}\n",
+                        TLS_SUITE_NAME.with(|n| n.borrow().clone()),
                         record.test,
                         record.instruction,
                         record.context.as_deref().unwrap_or_default(),
@@ -251,6 +317,9 @@ fn emit_report_event(event: ReportEvent) {
             // Full details
             let mut buffer = String::new();
             let _ = writeln!(buffer, "=== {} :: {} ===", record.test, record.instruction);
+            if let Some(detail) = record.instruction_detail.as_deref() {
+                let _ = writeln!(buffer, "Instruction: {}", detail);
+            }
             let _ = writeln!(
                 buffer,
                 "CUs: A={}, B={}",
@@ -288,7 +357,7 @@ fn emit_report_event(event: ReportEvent) {
             write_accounts_section(&mut buffer, "-- Accounts A --", &record.accounts_a);
             write_accounts_section(&mut buffer, "-- Accounts B --", &record.accounts_b);
             buffer.push('\n');
-            with_compare_programs_file("report_details.txt", |f, _| {
+            with_compare_programs_file("details.txt", |f, _| {
                 let _ = f.write_all(buffer.as_bytes());
             });
         }
@@ -320,6 +389,12 @@ fn rng_next_bytes32() -> [u8; 32] {
 pub fn new_unique_pubkey() -> solana_pubkey::Pubkey {
     solana_pubkey::Pubkey::new_from_array(rng_next_bytes32())
 }
+pub fn new_unique_address() -> solana_address::Address {
+    solana_address::Address::new_from_array(rng_next_bytes32())
+}
+pub fn new_unique_keypair() -> solana_keypair::Keypair {
+    solana_keypair::Keypair::new_from_array(rng_next_bytes32())
+}
 
 pub fn set_run_config(
     index: usize,
@@ -343,14 +418,19 @@ pub fn set_test_name(name: &str) {
     TLS_TEST_NAME.with(|n| *n.borrow_mut() = name.to_string());
 }
 
-pub fn current_program_filename() -> &'static str {
-    let (a, b) = PROGRAM_FILENAMES
-        .get()
-        .expect("compare-programs not initialized");
-    match TLS_INDEX.with(|c| c.get()) {
-        0 => a.as_str(),
-        _ => b.as_str(),
+pub fn set_test_suite(name: &str) {
+    let mut s = name.to_string();
+    if let Some(pos) = s.rfind('/') {
+        s = s[(pos + 1)..].to_string();
     }
+    if let Some(pos) = s.rfind('\\') {
+        s = s[(pos + 1)..].to_string();
+    }
+    TLS_SUITE_NAME.with(|n| *n.borrow_mut() = s);
+}
+
+pub fn set_filter_program_ids(ids: &[Pubkey]) {
+    TLS_FILTER_PROGRAM_IDS.with(|c| *c.borrow_mut() = ids.to_vec());
 }
 
 pub fn current_program_label() -> &'static str {
@@ -360,16 +440,6 @@ pub fn current_program_label() -> &'static str {
     match TLS_INDEX.with(|c| c.get()) {
         0 => a.as_str(),
         _ => b.as_str(),
-    }
-}
-
-pub fn counterpart_program_label() -> &'static str {
-    let (a, b) = PROGRAM_LABELS
-        .get()
-        .expect("compare-programs not initialized");
-    match TLS_INDEX.with(|c| c.get()) {
-        0 => b.as_str(),
-        _ => a.as_str(),
     }
 }
 
@@ -417,9 +487,11 @@ fn finalize_comparison(
                 None
             };
             let record = ComparisonRecord {
+                suite: TLS_SUITE_NAME.with(|n| n.borrow().clone()),
                 test: test_name,
                 instruction: instruction_name.to_string(),
                 context: None,
+                instruction_detail: None,
                 compute_units_a,
                 compute_units_b: cu_used,
                 byte_equal,
@@ -485,63 +557,32 @@ pub fn default_observer(
     res: &mollusk_svm::result::InstructionResult,
     invoke_ctx: &solana_program_runtime::invoke_context::InvokeContext,
 ) {
-    if let Some(lc) = invoke_ctx.get_log_collector() {
-        let logs: Vec<String> = {
-            let br = lc.borrow();
-            br.get_recorded_content().to_vec()
-        };
-        let name = TLS_INSTR_NAME.with(|n| n.borrow().clone());
-        log_instruction_logs(&name, &logs);
+    // Filter by program IDs if specified
+    let include = TLS_FILTER_PROGRAM_IDS.with(|ids| {
+        let filter_list = ids.borrow();
+        filter_list.is_empty() || filter_list.contains(&ix.program_id)
+    });
+    if !include {
+        return;
     }
+
+    let logs: Vec<String> = if let Some(lc) = invoke_ctx.get_log_collector() {
+        let br = lc.borrow();
+        br.get_recorded_content().to_vec()
+    } else {
+        Vec::new()
+    };
+    let context_label = TLS_INSTR_NAME.with(|n| n.borrow().clone());
+    log_instruction_logs(&context_label, &logs);
+    let (parsed_instr, instruction_detail) = decode_instruction_label_and_detail(ix)
+        .unwrap_or_else(|| (context_suffix_or_whole(&context_label), None));
     let result_str: &str = if res.program_result.is_ok() {
         "OK"
     } else {
         "ERR"
     };
-    // Parse a human-readable instruction name from the incoming instruction
-    let parsed_instr: String = if ix.program_id == solana_system_interface::program::id() {
-        bincode::deserialize::<SystemInstruction>(&ix.data)
-            .map(|si| match si {
-                SystemInstruction::CreateAccount { .. } => "CreateAccount".to_string(),
-                SystemInstruction::Assign { .. } => "Assign".to_string(),
-                SystemInstruction::Transfer { .. } => "Transfer".to_string(),
-                SystemInstruction::CreateAccountWithSeed { .. } => {
-                    "CreateAccountWithSeed".to_string()
-                }
-                SystemInstruction::AdvanceNonceAccount => "AdvanceNonceAccount".to_string(),
-                SystemInstruction::WithdrawNonceAccount { .. } => {
-                    "WithdrawNonceAccount".to_string()
-                }
-                SystemInstruction::InitializeNonceAccount(..) => {
-                    "InitializeNonceAccount".to_string()
-                }
-                SystemInstruction::AuthorizeNonceAccount(..) => "AuthorizeNonceAccount".to_string(),
-                SystemInstruction::Allocate { .. } => "Allocate".to_string(),
-                SystemInstruction::AllocateWithSeed { .. } => "AllocateWithSeed".to_string(),
-                SystemInstruction::AssignWithSeed { .. } => "AssignWithSeed".to_string(),
-                SystemInstruction::TransferWithSeed { .. } => "TransferWithSeed".to_string(),
-                _ => "System".to_string(),
-            })
-            .unwrap_or_else(|_| "System".to_string())
-    } else if ix.program_id == spl_associated_token_account_interface::program::id() {
-        // Our compare focus; label as ATA create variants
-        if ix.data.first().copied() == Some(0) {
-            "Create".to_string()
-        } else if ix.data.first().copied() == Some(1) {
-            "CreateIdempotent".to_string()
-        } else {
-            "AssociatedTokenAccount".to_string()
-        }
-    } else {
-        // Fallback: derive a readable name from the harness context label
-        let ctx = TLS_INSTR_NAME.with(|n| n.borrow().clone());
-        if let Some((_prefix, rest)) = ctx.split_once(' ') {
-            rest.to_string()
-        } else {
-            ctx
-        }
-    };
-    let context_label = TLS_INSTR_NAME.with(|n| n.borrow().clone());
+    // Already filtered
+    // parsed_instr already determined via decoders
     let ctx_ptr = TLS_CTX_PTR.with(|c| *c.borrow());
     if !ctx_ptr.is_null() {
         let ctx_ref = unsafe { &*ctx_ptr };
@@ -585,9 +626,11 @@ pub fn default_observer(
                     None
                 };
                 let record = ComparisonRecord {
+                    suite: TLS_SUITE_NAME.with(|n| n.borrow().clone()),
                     test: test_name,
                     instruction: parsed_instr,
                     context: Some(context_label),
+                    instruction_detail,
                     compute_units_a,
                     compute_units_b: Some(res.compute_units_consumed),
                     byte_equal,
@@ -599,6 +642,70 @@ pub fn default_observer(
                 emit_report_event(ReportEvent::Comparison { record });
             }
         }
+    }
+}
+
+// Modular decoders
+fn context_suffix_or_whole(context_label: &str) -> String {
+    if let Some((_prefix, rest)) = context_label.split_once(' ') {
+        rest.to_string()
+    } else {
+        context_label.to_string()
+    }
+}
+
+fn decode_instruction_label_and_detail(
+    ix: &solana_instruction::Instruction,
+) -> Option<(String, Option<String>)> {
+    // System via Debug variant name
+    if ix.program_id == solana_system_interface::program::id() {
+        let dbg = bincode::deserialize::<SystemInstruction>(&ix.data)
+            .ok()
+            .map(|si| format!("{:?}", si))?;
+        return Some((variant_name_only(&dbg), None));
+    }
+    // ATA via tag
+    if ix.program_id == spl_associated_token_account_interface::program::id() {
+        if ix.data.is_empty() {
+            return Some(("CreateLegacyImplicit".to_string(), None));
+        }
+        let name = match ix.data.first().copied() {
+            Some(0) => "Create",
+            Some(1) => "CreateIdempotent",
+            Some(2) => "RecoverNested",
+            _ => "UnknownATA",
+        };
+        return Some((name.to_string(), None));
+    }
+    // SPL Token v1
+    if ix.program_id == spl_token_interface::id() {
+        if let Ok(instr) = spl_token_interface::instruction::TokenInstruction::unpack(&ix.data) {
+            let dbg = format!("{:?}", instr);
+            return Some((variant_name_only(&dbg), Some(dbg)));
+        }
+        return None;
+    }
+    // SPL Token-2022
+    if ix.program_id == spl_token_2022_interface::id() {
+        if let Ok(instr) = spl_token_2022_interface::instruction::TokenInstruction::unpack(&ix.data)
+        {
+            let dbg = format!("{:?}", instr);
+            return Some((variant_name_only(&dbg), Some(dbg)));
+        }
+        return None;
+    }
+    None
+}
+
+fn variant_name_only(debug_str: &str) -> String {
+    if let Some((name, _)) = debug_str.split_once(' ') {
+        name.to_string()
+    } else if let Some((name, _)) = debug_str.split_once('(') {
+        name.to_string()
+    } else if let Some((name, _)) = debug_str.split_once('{') {
+        name.to_string()
+    } else {
+        debug_str.to_string()
     }
 }
 

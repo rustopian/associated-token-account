@@ -11,7 +11,7 @@ use {
     },
 };
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn test_associated_token_account_with_transfer_fees() {
     let maximum_fee = 100;
     let transfer_fee_basis_points = 1_000;

@@ -13,6 +13,7 @@ use {
 
 const TEST_MINT_AMOUNT: u64 = 100;
 
+#[compare_programs::instrument]
 fn test_recover_nested_same_mint(program_id: &Pubkey) {
     let mut harness = AtaTestHarness::new_with_seed(program_id, compare_programs::seed())
         .with_wallet(1_000_000)
@@ -40,13 +41,10 @@ fn test_recover_nested_same_mint(program_id: &Pubkey) {
         &recover_instruction,
         &[
             Check::success(),
-            // Wallet received nested account lamports
             Check::account(&wallet_pubkey)
                 .lamports(pre_wallet_lamports.checked_add(nested_lamports).unwrap())
                 .build(),
-            // Nested account has no lamports
             Check::account(&nested_ata).lamports(0).build(),
-            // Nested account is closed
             Check::account(&nested_ata).closed().build(),
         ],
     );
@@ -63,6 +61,7 @@ fn test_recover_nested_same_mint(program_id: &Pubkey) {
     assert_eq!(destination_amount, TEST_MINT_AMOUNT);
 }
 
+#[compare_programs::instrument]
 fn test_fail_missing_wallet_signature(token_program_id: &Pubkey) {
     let mut harness = AtaTestHarness::new_with_seed(token_program_id, compare_programs::seed())
         .with_wallet(1_000_000)
@@ -83,6 +82,7 @@ fn test_fail_missing_wallet_signature(token_program_id: &Pubkey) {
     );
 }
 
+#[compare_programs::instrument]
 fn test_fail_wrong_signer(token_program_id: &Pubkey) {
     let mut harness = AtaTestHarness::new_with_seed(token_program_id, compare_programs::seed())
         .with_wallet(1_000_000)
@@ -106,6 +106,7 @@ fn test_fail_wrong_signer(token_program_id: &Pubkey) {
     );
 }
 
+#[compare_programs::instrument]
 fn test_fail_not_nested(token_program_id: &Pubkey) {
     let mut harness = AtaTestHarness::new_with_seed(token_program_id, compare_programs::seed())
         .with_wallet(1_000_000)
@@ -125,6 +126,7 @@ fn test_fail_not_nested(token_program_id: &Pubkey) {
     );
 }
 
+#[compare_programs::instrument]
 fn test_fail_wrong_address_derivation_owner(token_program_id: &Pubkey) {
     let mut harness = AtaTestHarness::new_with_seed(token_program_id, compare_programs::seed())
         .with_wallet(1_000_000)
@@ -148,16 +150,17 @@ fn test_fail_wrong_address_derivation_owner(token_program_id: &Pubkey) {
     );
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn success_same_mint_2022() {
     test_recover_nested_same_mint(&spl_token_2022_interface::id());
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn success_same_mint() {
     test_recover_nested_same_mint(&spl_token_interface::id());
 }
 
+#[compare_programs::instrument]
 fn test_recover_nested_different_mints(program_id: &Pubkey) {
     let harness = AtaTestHarness::new_with_seed(program_id, compare_programs::seed())
         .with_wallet(1_000_000)
@@ -192,13 +195,10 @@ fn test_recover_nested_different_mints(program_id: &Pubkey) {
         &recover_instruction,
         &[
             Check::success(),
-            // Wallet received nested account lamports
             Check::account(&wallet_pubkey)
                 .lamports(pre_wallet_lamports.checked_add(nested_lamports).unwrap())
                 .build(),
-            // Nested account has no lamports
             Check::account(&nested_ata).lamports(0).build(),
-            // Nested account is closed
             Check::account(&nested_ata).closed().build(),
         ],
     );
@@ -215,56 +215,56 @@ fn test_recover_nested_different_mints(program_id: &Pubkey) {
     assert_eq!(destination_amount, TEST_MINT_AMOUNT);
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn success_different_mints() {
     test_recover_nested_different_mints(&spl_token_interface::id());
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn success_different_mints_2022() {
     test_recover_nested_different_mints(&spl_token_2022_interface::id());
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn fail_missing_wallet_signature_2022() {
     test_fail_missing_wallet_signature(&spl_token_2022_interface::id());
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn fail_missing_wallet_signature() {
     test_fail_missing_wallet_signature(&spl_token_interface::id());
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn fail_wrong_signer_2022() {
     test_fail_wrong_signer(&spl_token_2022_interface::id());
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn fail_wrong_signer() {
     test_fail_wrong_signer(&spl_token_interface::id());
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn fail_not_nested_2022() {
     test_fail_not_nested(&spl_token_2022_interface::id());
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn fail_not_nested() {
     test_fail_not_nested(&spl_token_interface::id());
 }
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn fail_wrong_address_derivation_owner_2022() {
     test_fail_wrong_address_derivation_owner(&spl_token_2022_interface::id());
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn fail_wrong_address_derivation_owner() {
     test_fail_wrong_address_derivation_owner(&spl_token_interface::id());
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn fail_owner_account_does_not_exist() {
     let mut harness = AtaTestHarness::new(&spl_token_2022_interface::id())
         .with_wallet(1_000_000)
@@ -296,7 +296,7 @@ fn fail_owner_account_does_not_exist() {
     );
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn fail_wrong_spl_token_program() {
     let mut harness = AtaTestHarness::new(&spl_token_2022_interface::id())
         .with_wallet(1_000_000)
@@ -322,7 +322,7 @@ fn fail_wrong_spl_token_program() {
     );
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn fail_destination_not_wallet_ata() {
     let mut harness = AtaTestHarness::new(&spl_token_2022_interface::id())
         .with_wallet(1_000_000)

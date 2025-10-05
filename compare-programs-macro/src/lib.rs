@@ -3,11 +3,32 @@ use quote::quote;
 use syn::{
     parse_macro_input, parse_quote,
     visit_mut::{self, VisitMut},
-    Expr, ExprCall, ExprMethodCall, ExprPath, Ident, ItemFn,
+    Expr, ExprCall, ExprMethodCall, ExprPath, Ident, ItemFn, LitStr,
 };
 
 #[proc_macro_attribute]
-pub fn compare_programs(_args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn instrument(_args: TokenStream, input: TokenStream) -> TokenStream {
+    let mut input_fn = parse_macro_input!(input as ItemFn);
+
+    // Rewrite the function body using the same transformations as the test macro
+    let mut body = (*input_fn.block).clone();
+    {
+        let mut rewriter = BodyRewriter {};
+        rewriter.visit_block_mut(&mut body);
+    }
+
+    // Provide a local step counter, mirroring the test wrapper behavior
+    let wrapped = quote!({
+        let mut __cp_step: usize = 0;
+        #body
+    });
+
+    input_fn.block = Box::new(parse_quote!(#wrapped));
+    TokenStream::from(quote!(#input_fn))
+}
+
+#[proc_macro_attribute]
+pub fn compare_programs(args: TokenStream, input: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(input as ItemFn);
     let fn_name = input_fn.sig.ident.clone();
     let vis = input_fn.vis.clone();
@@ -19,12 +40,85 @@ pub fn compare_programs(_args: TokenStream, input: TokenStream) -> TokenStream {
         rewriter.visit_block_mut(&mut body);
     }
 
-    let prog_a = "spl_associated_token_account";
-    let prog_b = "spl_associated_token_account";
-    let label_a = "SPL ATA";
-    let label_b = "p-ATA";
+    // Defaults
+    let mut programs: Vec<String> = Vec::new();
+    let mut filter_program_ids: Vec<String> = Vec::new();
 
-    // Wrap the body to run twice. We reconstruct the function to include the runs.
+    // Parse attribute: programs=[..], filter_program_ids=[..]
+    if !args.is_empty() {
+        let args_str = args.to_string();
+        // programs
+        if let Some(i) = args_str.find("programs") {
+            if let Some(start) = args_str[i..].find('[') {
+                let start_idx = i + start + 1;
+                if let Some(end_rel) = args_str[start_idx..].find(']') {
+                    let end_idx = start_idx + end_rel;
+                    let inside = &args_str[start_idx..end_idx];
+                    let vals: Vec<String> = inside
+                        .split('"')
+                        .filter_map(|t| {
+                            let t = t.trim();
+                            if t.is_empty() || t == "," {
+                                None
+                            } else {
+                                Some(t.to_string())
+                            }
+                        })
+                        .collect();
+                    if !vals.is_empty() {
+                        programs = vals;
+                    }
+                }
+            }
+        }
+        // filter_program_ids
+        if let Some(i) = args_str.find("filter_program_ids") {
+            if let Some(start) = args_str[i..].find('[') {
+                let start_idx = i + start + 1;
+                if let Some(end_rel) = args_str[start_idx..].find(']') {
+                    let end_idx = start_idx + end_rel;
+                    let inside = &args_str[start_idx..end_idx];
+                    let vals: Vec<String> = inside
+                        .split('"')
+                        .filter_map(|t| {
+                            let t = t.trim();
+                            if t.is_empty() || t == "," {
+                                None
+                            } else {
+                                Some(t.to_string())
+                            }
+                        })
+                        .collect();
+                    if !vals.is_empty() {
+                        filter_program_ids = vals;
+                    }
+                }
+            }
+        }
+    }
+
+    assert!(
+        !programs.is_empty(),
+        "compare_programs: 'programs' must be provided and non-empty"
+    );
+    let program_literals: Vec<proc_macro2::TokenStream> = programs
+        .iter()
+        .map(|p| {
+            let lit = LitStr::new(p, proc_macro2::Span::call_site());
+            quote! { #lit }
+        })
+        .collect();
+
+    // Convert filter_program_ids into token stream
+    let filter_ids_tokens: Vec<proc_macro2::TokenStream> = filter_program_ids
+        .iter()
+        .map(|id| {
+            let tokens: proc_macro2::TokenStream = id.parse().expect("Invalid program ID path");
+            quote! { #tokens }
+        })
+        .collect();
+
+    // Wrap the body to run for each variant against baseline with two runs per variant
     let wrapped = quote! {
         #[test]
         #vis fn #fn_name() {
@@ -34,17 +128,25 @@ pub fn compare_programs(_args: TokenStream, input: TokenStream) -> TokenStream {
                 h
             };
             compare_programs::set_test_name(stringify!(#fn_name));
-            // First run
-            compare_programs::set_run_config(0, #prog_a, #prog_b, #label_a, #label_b, seed);
-            {
-                let mut __cp_step: usize = 0;
-                #body
-            }
-            // Second run
-            compare_programs::set_run_config(1, #prog_a, #prog_b, #label_a, #label_b, seed);
-            {
-                let mut __cp_step: usize = 0;
-                #body
+            compare_programs::set_test_suite(file!());
+            compare_programs::set_filter_program_ids(&[#(#filter_ids_tokens),*]);
+
+            let __cp_programs: &[&str] = &[#(#program_literals),*];
+            assert!(__cp_programs.len() >= 2, "programs must have at least 2 entries");
+            let __cp_baseline = __cp_programs[0];
+            for __cp_variant in &__cp_programs[1..] {
+                // Run baseline
+                compare_programs::set_run_config(0, __cp_baseline, __cp_variant, "Base", *__cp_variant, seed);
+                {
+                    let mut __cp_step: usize = 0;
+                    #body
+                }
+                // Run variant
+                compare_programs::set_run_config(1, __cp_baseline, __cp_variant, "Base", *__cp_variant, seed);
+                {
+                    let mut __cp_step: usize = 0;
+                    #body
+                }
             }
         }
     };
@@ -139,15 +241,20 @@ impl VisitMut for BodyRewriter {
         // Recurse
         visit_mut::visit_expr_call_mut(self, node);
 
-        // Rewrite Pubkey::new_unique() and solana_pubkey::Pubkey::new_unique()
+        // Rewrite new_unique() calls for Pubkey, Keypair, and Address
         if let Expr::Path(ExprPath { path, .. }) = &*node.func {
             let segs: Vec<_> = path.segments.iter().collect();
-            let matches_pubkey = segs.len() >= 2
-                && segs[segs.len() - 2].ident == "Pubkey"
-                && segs[segs.len() - 1].ident == "new_unique";
-            if matches_pubkey {
-                // Replace callee with compare_programs::new_unique_pubkey
-                node.func = Box::new(parse_quote!(compare_programs::new_unique_pubkey));
+            if segs.len() >= 2 && segs[segs.len() - 1].ident == "new_unique" {
+                let type_name = segs[segs.len() - 2].ident.to_string();
+                let replacement = match type_name.as_str() {
+                    "Pubkey" => Some(parse_quote!(compare_programs::new_unique_pubkey)),
+                    "Keypair" => Some(parse_quote!(compare_programs::new_unique_keypair)),
+                    "Address" => Some(parse_quote!(compare_programs::new_unique_address)),
+                    _ => None,
+                };
+                if let Some(new_func) = replacement {
+                    node.func = Box::new(new_func);
+                }
             }
         }
     }

@@ -8,7 +8,7 @@ use {
     solana_program_error::ProgramError,
 };
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn success_account_exists() {
     let mut harness =
         AtaTestHarness::new_with_seed(&spl_token_2022_interface::id(), compare_programs::seed())
@@ -65,7 +65,7 @@ fn success_account_exists() {
     );
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn fail_account_exists_with_wrong_owner() {
     let harness =
         AtaTestHarness::new(&spl_token_2022_interface::id()).with_wallet_and_mint(1_000_000, 6);
@@ -88,7 +88,7 @@ fn fail_account_exists_with_wrong_owner() {
     );
 }
 
-#[compare_programs]
+#[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn fail_non_ata() {
     let harness =
         AtaTestHarness::new(&spl_token_2022_interface::id()).with_wallet_and_mint(1_000_000, 6);
