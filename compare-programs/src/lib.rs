@@ -1,3 +1,8 @@
+//! Program comparison framework for Solana programs.
+//!
+//! Compare multiple versions of a program side-by-side to detect behavioral differences,
+//! performance regressions, and state divergences.
+
 use chrono::{Datelike, Timelike, Utc};
 pub use compare_programs_macro::compare_programs;
 pub use compare_programs_macro::instrument;
@@ -5,191 +10,74 @@ use mollusk_svm::MolluskContext;
 use once_cell::sync::OnceCell;
 use solana_account::Account;
 use solana_pubkey::Pubkey;
-use solana_system_interface::instruction::SystemInstruction;
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap};
-use std::fmt::Write as FmtWrite;
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Mutex;
+
+mod observer;
+mod report;
+
+// Re-export the default observer for macro-generated code
+pub use observer::default_observer;
 
 #[derive(Clone)]
-struct PendingRun {
+pub(crate) struct PendingRun {
     compute_units: Option<u64>,
     result: Option<String>,
     snapshot: BTreeMap<Pubkey, Account>,
 }
 
-#[derive(Clone)]
-struct ComparisonRecord {
-    test: String,
-    instruction: String,
-    context: Option<String>,
-    instruction_detail: Option<String>,
-    compute_units_a: Option<u64>,
-    compute_units_b: Option<u64>,
-    byte_equal: Option<bool>,
-    result_a: Option<String>,
-    result_b: Option<String>,
-    accounts_a: BTreeMap<Pubkey, Account>,
-    accounts_b: BTreeMap<Pubkey, Account>,
-}
-
-static PROGRAM_FILENAMES: OnceCell<(String, String)> = OnceCell::new();
+pub(crate) static PROGRAM_FILENAMES: OnceCell<(String, String)> = OnceCell::new();
 static PROGRAM_LABELS: OnceCell<(String, String)> = OnceCell::new();
 static CURRENT_INDEX: OnceCell<AtomicUsize> = OnceCell::new();
 static TEST_SEED: OnceCell<u64> = OnceCell::new();
+
 thread_local! {
-    static TLS_TEST_NAME: RefCell<String> = const { RefCell::new(String::new()) };
-    static TLS_INDEX: Cell<usize> = const { Cell::new(0) };
-    static TLS_PENDING: RefCell<HashMap<(String, String), PendingRun>> = RefCell::new(HashMap::new());
-}
-thread_local! {
-    static TLS_CTX_PTR: RefCell<*const MolluskContext<HashMap<Pubkey, Account>>> = const { RefCell::new(std::ptr::null()) };
+    pub(crate) static TLS_TEST_NAME: RefCell<String> = const { RefCell::new(String::new()) };
+    pub(crate) static TLS_INDEX: Cell<usize> = const { Cell::new(0) };
+    pub(crate) static TLS_PENDING: RefCell<HashMap<(String, String), PendingRun>> = RefCell::new(HashMap::new());
+    pub(crate) static TLS_CTX_PTR: RefCell<*const MolluskContext<HashMap<Pubkey, Account>>> = const { RefCell::new(std::ptr::null()) };
     static TLS_INSTR_NAME: RefCell<String> = const { RefCell::new(String::new()) };
-    static TLS_SUITE_NAME: RefCell<String> = const { RefCell::new(String::new()) };
-    static TLS_FILTER_PROGRAM_IDS: RefCell<Vec<Pubkey>> = const { RefCell::new(Vec::new()) };
+    pub(crate) static TLS_SUITE_NAME: RefCell<String> = const { RefCell::new(String::new()) };
+    pub(crate) static TLS_FILTER_PROGRAM_IDS: RefCell<Vec<Pubkey>> = const { RefCell::new(Vec::new()) };
 }
 
-fn write_missing_and_extra(
-    buffer: &mut String,
-    accounts_a: &BTreeMap<Pubkey, Account>,
-    accounts_b: &BTreeMap<Pubkey, Account>,
-) {
-    for pubkey in accounts_a
-        .keys()
-        .filter(|pubkey| !accounts_b.contains_key(*pubkey))
-    {
-        let _ = writeln!(buffer, "- Missing in B: {}", pubkey);
-    }
-    for pubkey in accounts_b
-        .keys()
-        .filter(|pubkey| !accounts_a.contains_key(*pubkey))
-    {
-        let _ = writeln!(buffer, "+ Extra in B: {}", pubkey);
-    }
+thread_local! {
+    static TLS_RNG: RefCell<Option<u64>> = const { RefCell::new(None) };
 }
 
-fn write_account_changes(
-    buffer: &mut String,
-    accounts_a: &BTreeMap<Pubkey, Account>,
-    accounts_b: &BTreeMap<Pubkey, Account>,
-) {
-    for (pubkey, account_a) in accounts_a.iter() {
-        if let Some(account_b) = accounts_b.get(pubkey) {
-            let mut diffs: Vec<String> = Vec::new();
-            if account_a.lamports != account_b.lamports {
-                diffs.push(format!(
-                    "lamports: {} -> {}",
-                    account_a.lamports, account_b.lamports
-                ));
-            }
-            if account_a.owner != account_b.owner {
-                diffs.push(format!("owner: {} -> {}", account_a.owner, account_b.owner));
-            }
-            if account_a.data != account_b.data {
-                if account_a.data.len() != account_b.data.len() {
-                    diffs.push(format!(
-                        "data_len: {} -> {}",
-                        account_a.data.len(),
-                        account_b.data.len()
-                    ));
-                } else {
-                    diffs.push("data: bytes differ".to_string());
-                    let mut first_difference_index: Option<usize> = None;
-                    let mut total_diffs: usize = 0;
-                    for (i, (byte_a, byte_b)) in
-                        account_a.data.iter().zip(account_b.data.iter()).enumerate()
-                    {
-                        if byte_a != byte_b {
-                            total_diffs += 1;
-                            if first_difference_index.is_none() {
-                                first_difference_index = Some(i);
-                            }
-                        }
-                    }
-                    let first_index = first_difference_index.unwrap_or(0);
-                    let start = first_index.saturating_sub(16);
-                    let end = (start + 64).min(account_a.data.len());
-                    let a_hex_window = hex_window(&account_a.data, start, end);
-                    let b_hex_window = hex_window(&account_b.data, start, end);
-                    let _ = writeln!(
-                        buffer,
-                        "  data_diff: first_at={}, differing_bytes={}",
-                        first_index, total_diffs
-                    );
-                    let _ = writeln!(buffer, "  A: {}", a_hex_window);
-                    let _ = writeln!(buffer, "  B: {}", b_hex_window);
-                }
-            }
-            if account_a.executable != account_b.executable {
-                diffs.push(format!(
-                    "executable: {} -> {}",
-                    account_a.executable, account_b.executable
-                ));
-            }
-            if account_a.rent_epoch != account_b.rent_epoch {
-                diffs.push(format!(
-                    "rent_epoch: {} -> {}",
-                    account_a.rent_epoch, account_b.rent_epoch
-                ));
-            }
-            if !diffs.is_empty() {
-                let _ = writeln!(buffer, "* Changed {}: {}", pubkey, diffs.join(", "));
+/// Generates a session prefix from git commit and timestamp for output files.
+pub(crate) fn get_or_make_session_prefix() -> String {
+    let dir = PathBuf::from("target/compare-programs");
+    let _ = fs::create_dir_all(&dir);
+    let mut path = dir.clone();
+    path.push("run_prefix.txt");
+    if let Ok(bytes) = fs::read(&path) {
+        if let Ok(existing) = String::from_utf8(bytes) {
+            let trimmed = existing.trim().to_string();
+            if !trimmed.is_empty() {
+                return trimmed;
             }
         }
     }
-}
-
-fn write_accounts_section(buffer: &mut String, title: &str, accounts: &BTreeMap<Pubkey, Account>) {
-    let _ = writeln!(buffer, "{}", title);
-    for (pubkey, account) in accounts.iter() {
-        let _ = writeln!(
-            buffer,
-            "{} owner={} lamports={} data_len={}",
-            pubkey,
-            account.owner,
-            account.lamports,
-            account.data.len()
-        );
+    let prefix = current_run_prefix();
+    // Try atomic create
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&path)
+    {
+        use std::io::Write;
+        let _ = f.write_all(prefix.as_bytes());
+        let _ = f.sync_all();
+        return prefix;
     }
-}
-
-static WRITE_LOCK: OnceCell<Mutex<()>> = OnceCell::new();
-static RUN_PREFIX: OnceCell<String> = OnceCell::new();
-
-thread_local! { static TLS_RNG: RefCell<Option<u64>> = const { RefCell::new(None) }; }
-
-enum ReportEvent {
-    InstructionLogs {
-        test: String,
-        instruction: String,
-        program_label: String,
-        logs: Vec<String>,
-    },
-    Comparison {
-        record: ComparisonRecord,
-    },
-}
-
-fn with_compare_programs_file<F>(filename: &str, write_fn: F)
-where
-    F: FnOnce(&mut std::fs::File, bool),
-{
-    let mut path = PathBuf::from("target/compare-programs");
-    if fs::create_dir_all(&path).is_err() {
-        return;
-    }
-    let prefix = RUN_PREFIX.get_or_init(get_or_make_session_prefix);
-    path.push(format!("{}-{}", prefix, filename));
-    if let Ok(_g) = WRITE_LOCK.get_or_init(|| Mutex::new(())).lock() {
-        if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
-            let header_needed = f.metadata().map(|m| m.len() == 0).unwrap_or(true);
-            write_fn(&mut f, header_needed);
-        }
-    }
+    // If someone else created it, read back
+    fs::read_to_string(&path)
+        .map(|s| s.trim().to_string())
+        .unwrap_or(prefix)
 }
 
 fn current_run_prefix() -> String {
@@ -223,145 +111,7 @@ fn git_rev_parse_head() -> Option<String> {
     None
 }
 
-fn get_or_make_session_prefix() -> String {
-    let dir = PathBuf::from("target/compare-programs");
-    let _ = fs::create_dir_all(&dir);
-    let mut path = dir.clone();
-    path.push("run_prefix.txt");
-    if let Ok(bytes) = fs::read(&path) {
-        if let Ok(existing) = String::from_utf8(bytes) {
-            let trimmed = existing.trim().to_string();
-            if !trimmed.is_empty() {
-                return trimmed;
-            }
-        }
-    }
-    let prefix = current_run_prefix();
-    // Try atomic create
-    if let Ok(mut f) = OpenOptions::new().create_new(true).write(true).open(&path) {
-        let _ = f.write_all(prefix.as_bytes());
-        let _ = f.sync_all();
-        return prefix;
-    }
-    // If someone else created it, read back
-    fs::read_to_string(&path)
-        .map(|s| s.trim().to_string())
-        .unwrap_or(prefix)
-}
-
-fn emit_report_event(event: ReportEvent) {
-    match event {
-        ReportEvent::InstructionLogs {
-            test,
-            instruction,
-            program_label,
-            logs,
-        } => {
-            let mut buffer = String::new();
-            let _ = writeln!(
-                buffer,
-                "=== {} :: {} :: {} ===",
-                test, instruction, program_label
-            );
-            for line in logs.iter() {
-                let _ = writeln!(buffer, "{}", line);
-            }
-            buffer.push('\n');
-            with_compare_programs_file("logs.txt", |f, _| {
-                let _ = f.write_all(buffer.as_bytes());
-            });
-        }
-        ReportEvent::Comparison { record } => {
-            with_compare_programs_file("summary.csv", |f, header_needed| {
-                if header_needed {
-                    let (a, b) = PROGRAM_FILENAMES
-                        .get()
-                        .cloned()
-                        .unwrap_or_else(|| ("A".to_string(), "B".to_string()));
-                    let _ = f.write_all(
-                        format!(
-                            "suite,test,instruction,context,{a} CUs,{b} CUs,ByteEqual,{a} Result,{b} Result\n"
-                        )
-                        .as_bytes(),
-                    );
-                }
-                let byte_equality_label = record
-                    .byte_equal
-                    .map(|b| if b { "100%" } else { "DIFF" })
-                    .unwrap_or("");
-                let _ = f.write_all(
-                    format!(
-                        "{},{},{},{},{},{},{},{},{}\n",
-                        TLS_SUITE_NAME.with(|n| n.borrow().clone()),
-                        record.test,
-                        record.instruction,
-                        record.context.as_deref().unwrap_or_default(),
-                        record
-                            .compute_units_a
-                            .map(|v| v.to_string())
-                            .unwrap_or_default(),
-                        record
-                            .compute_units_b
-                            .map(|v| v.to_string())
-                            .unwrap_or_default(),
-                        byte_equality_label,
-                        record.result_a.as_deref().unwrap_or_default(),
-                        record.result_b.as_deref().unwrap_or_default(),
-                    )
-                    .as_bytes(),
-                );
-            });
-
-            // Full details
-            let mut buffer = String::new();
-            let _ = writeln!(buffer, "=== {} :: {} ===", record.test, record.instruction);
-            if let Some(detail) = record.instruction_detail.as_deref() {
-                let _ = writeln!(buffer, "Instruction: {}", detail);
-            }
-            let _ = writeln!(
-                buffer,
-                "CUs: A={}, B={}",
-                record
-                    .compute_units_a
-                    .map(|v| v.to_string())
-                    .unwrap_or_default(),
-                record
-                    .compute_units_b
-                    .map(|v| v.to_string())
-                    .unwrap_or_default()
-            );
-            let _ = writeln!(
-                buffer,
-                "ByteEqual: {}",
-                record
-                    .byte_equal
-                    .map(|b| if b { "100%" } else { "DIFF" })
-                    .unwrap_or("")
-            );
-            if let Some(ctx) = record.context.as_deref() {
-                let _ = writeln!(buffer, "Context: {}", ctx);
-            }
-            if let Some(result_a_str) = record.result_a.as_deref() {
-                let _ = writeln!(buffer, "Result A: {}", result_a_str);
-            }
-            if let Some(result_b_str) = record.result_b.as_deref() {
-                let _ = writeln!(buffer, "Result B: {}", result_b_str);
-            }
-            write_missing_and_extra(&mut buffer, &record.accounts_a, &record.accounts_b);
-            write_account_changes(&mut buffer, &record.accounts_a, &record.accounts_b);
-            if record.accounts_a == record.accounts_b {
-                let _ = writeln!(buffer, "No state differences");
-            }
-            write_accounts_section(&mut buffer, "-- Accounts A --", &record.accounts_a);
-            write_accounts_section(&mut buffer, "-- Accounts B --", &record.accounts_b);
-            buffer.push('\n');
-            with_compare_programs_file("details.txt", |f, _| {
-                let _ = f.write_all(buffer.as_bytes());
-            });
-        }
-    }
-}
-
+/// Deterministic RNG for generating reproducible pubkeys/keypairs across test runs.
 fn rng_next_bytes32() -> [u8; 32] {
     TLS_RNG.with(|cell| {
         if cell.borrow().is_none() {
@@ -387,13 +137,16 @@ fn rng_next_bytes32() -> [u8; 32] {
 pub fn new_unique_pubkey() -> solana_pubkey::Pubkey {
     solana_pubkey::Pubkey::new_from_array(rng_next_bytes32())
 }
+
 pub fn new_unique_address() -> solana_address::Address {
     solana_address::Address::new_from_array(rng_next_bytes32())
 }
+
 pub fn new_unique_keypair() -> solana_keypair::Keypair {
     solana_keypair::Keypair::new_from_array(rng_next_bytes32())
 }
 
+/// Configures the test run with program filenames, labels, and seed.
 pub fn set_run_config(
     index: usize,
     a_filename: &str,
@@ -417,16 +170,15 @@ pub fn set_test_name(name: &str) {
 }
 
 pub fn set_test_suite(name: &str) {
-    let mut s = name.to_string();
-    if let Some(pos) = s.rfind('/') {
-        s = s[(pos + 1)..].to_string();
-    }
-    if let Some(pos) = s.rfind('\\') {
-        s = s[(pos + 1)..].to_string();
-    }
+    let s = std::path::Path::new(name)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(name)
+        .to_string();
     TLS_SUITE_NAME.with(|n| *n.borrow_mut() = s);
 }
 
+/// Sets program IDs to filter observations. Empty list = observe all programs.
 pub fn set_filter_program_ids(ids: &[Pubkey]) {
     TLS_FILTER_PROGRAM_IDS.with(|c| *c.borrow_mut() = ids.to_vec());
 }
@@ -445,204 +197,12 @@ pub fn seed() -> u64 {
     *TEST_SEED.get().expect("compare-programs not initialized")
 }
 
-fn finalize_comparison(
-    key: &str,
-    instruction_name: &str,
-    context: Option<String>,
-    instruction_detail: Option<String>,
-    cu_used: Option<u64>,
-    result_str: Option<&str>,
-    account_snapshot: BTreeMap<Pubkey, Account>,
-) {
-    let test_name = TLS_TEST_NAME.with(|n| n.borrow().clone());
-    let idx = TLS_INDEX.with(|c| c.get());
-
-    match idx {
-        0 => {
-            TLS_PENDING.with(|p| {
-                p.borrow_mut().insert(
-                    (test_name.clone(), key.to_string()),
-                    PendingRun {
-                        compute_units: cu_used,
-                        result: result_str.map(|s| s.to_string()),
-                        snapshot: account_snapshot,
-                    },
-                );
-            });
-        }
-        _ => {
-            let (mut compute_units_a, mut result_a, mut snapshot_a) = (None, None, BTreeMap::new());
-            TLS_PENDING.with(|p| {
-                if let Some(pending) = p.borrow_mut().remove(&(test_name.clone(), key.to_string()))
-                {
-                    compute_units_a = pending.compute_units;
-                    result_a = pending.result;
-                    snapshot_a = pending.snapshot;
-                }
-            });
-            let byte_equal = if !snapshot_a.is_empty() {
-                Some(snapshot_a == account_snapshot)
-            } else {
-                None
-            };
-            let record = ComparisonRecord {
-                test: test_name,
-                instruction: instruction_name.to_string(),
-                context,
-                instruction_detail,
-                compute_units_a,
-                compute_units_b: cu_used,
-                byte_equal,
-                result_a,
-                result_b: result_str.map(|s| s.to_string()),
-                accounts_a: snapshot_a,
-                accounts_b: account_snapshot,
-            };
-            emit_report_event(ReportEvent::Comparison { record });
-        }
-    }
-}
-
-pub fn log_instruction_logs(instruction: &str, logs: &[String]) {
-    let test_name = TLS_TEST_NAME.with(|n| n.borrow().clone());
-    let label = current_program_label().to_string();
-    emit_report_event(ReportEvent::InstructionLogs {
-        test: test_name,
-        instruction: instruction.to_string(),
-        program_label: label,
-        logs: logs.to_vec(),
-    });
-}
-
 pub fn set_current_ctx_ptr(ctx: &MolluskContext<HashMap<Pubkey, Account>>) {
     TLS_CTX_PTR.with(|c| *c.borrow_mut() = ctx as *const _);
 }
 
 pub fn set_current_instruction_name(name: &str) {
     TLS_INSTR_NAME.with(|n| *n.borrow_mut() = name.to_string());
-}
-
-pub fn default_observer(
-    ix: &solana_instruction::Instruction,
-    res: &mollusk_svm::result::InstructionResult,
-    invoke_ctx: &solana_program_runtime::invoke_context::InvokeContext,
-) {
-    // Filter by program IDs if specified
-    let include = TLS_FILTER_PROGRAM_IDS.with(|ids| {
-        let filter_list = ids.borrow();
-        filter_list.is_empty() || filter_list.contains(&ix.program_id)
-    });
-    if !include {
-        return;
-    }
-
-    let logs: Vec<String> = if let Some(lc) = invoke_ctx.get_log_collector() {
-        let br = lc.borrow();
-        br.get_recorded_content().to_vec()
-    } else {
-        Vec::new()
-    };
-    let context_label = TLS_INSTR_NAME.with(|n| n.borrow().clone());
-    log_instruction_logs(&context_label, &logs);
-    let (parsed_instr, instruction_detail) = decode_instruction_label_and_detail(ix)
-        .unwrap_or_else(|| (context_suffix_or_whole(&context_label), None));
-    let result_str: &str = if res.program_result.is_ok() {
-        "OK"
-    } else {
-        "ERR"
-    };
-
-    let ctx_ptr = TLS_CTX_PTR.with(|c| *c.borrow());
-    if !ctx_ptr.is_null() {
-        let ctx_ref = unsafe { &*ctx_ptr };
-        let store = ctx_ref.account_store.borrow();
-        let account_snapshot: BTreeMap<Pubkey, Account> =
-            store.iter().map(|(k, v)| (*k, v.clone())).collect();
-        finalize_comparison(
-            &context_label,
-            &parsed_instr,
-            Some(context_label.clone()),
-            instruction_detail,
-            Some(res.compute_units_consumed),
-            Some(result_str),
-            account_snapshot,
-        );
-    }
-}
-
-// Modular decoders
-fn context_suffix_or_whole(context_label: &str) -> String {
-    if let Some((_prefix, rest)) = context_label.split_once(' ') {
-        rest.to_string()
-    } else {
-        context_label.to_string()
-    }
-}
-
-fn decode_instruction_label_and_detail(
-    ix: &solana_instruction::Instruction,
-) -> Option<(String, Option<String>)> {
-    // System via Debug variant name
-    if ix.program_id == solana_system_interface::program::id() {
-        let dbg = bincode::deserialize::<SystemInstruction>(&ix.data)
-            .ok()
-            .map(|si| format!("{:?}", si))?;
-        return Some((variant_name_only(&dbg), None));
-    }
-    // ATA via tag
-    if ix.program_id == spl_associated_token_account_interface::program::id() {
-        if ix.data.is_empty() {
-            return Some(("CreateLegacyImplicit".to_string(), None));
-        }
-        let name = match ix.data.first().copied() {
-            Some(0) => "Create",
-            Some(1) => "CreateIdempotent",
-            Some(2) => "RecoverNested",
-            _ => "UnknownATA",
-        };
-        return Some((name.to_string(), None));
-    }
-    // SPL Token v1
-    if ix.program_id == spl_token_interface::id() {
-        if let Ok(instr) = spl_token_interface::instruction::TokenInstruction::unpack(&ix.data) {
-            let dbg = format!("{:?}", instr);
-            return Some((variant_name_only(&dbg), Some(dbg)));
-        }
-        return None;
-    }
-    // SPL Token-2022
-    if ix.program_id == spl_token_2022_interface::id() {
-        if let Ok(instr) = spl_token_2022_interface::instruction::TokenInstruction::unpack(&ix.data)
-        {
-            let dbg = format!("{:?}", instr);
-            return Some((variant_name_only(&dbg), Some(dbg)));
-        }
-        return None;
-    }
-    None
-}
-
-fn variant_name_only(debug_str: &str) -> String {
-    if let Some((name, _)) = debug_str.split_once(' ') {
-        name.to_string()
-    } else if let Some((name, _)) = debug_str.split_once('(') {
-        name.to_string()
-    } else if let Some((name, _)) = debug_str.split_once('{') {
-        name.to_string()
-    } else {
-        debug_str.to_string()
-    }
-}
-
-fn hex_window(data: &[u8], start: usize, end: usize) -> String {
-    let mut s = String::new();
-    for (i, b) in data[start..end].iter().enumerate() {
-        if i > 0 {
-            let _ = write!(s, " ");
-        }
-        let _ = write!(s, "{:02x}", b);
-    }
-    s
 }
 
 fn ensure_sbf_out_dir() {
