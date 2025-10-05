@@ -572,11 +572,12 @@ dependencies = [
 [[package]]
 name = "compare-programs"
 version = "0.1.0"
-source = "git+https://github.com/rustopian/compare-programs.git#90112e0a989a46c7ee5c68b98221739a60aa5bda"
+source = "git+https://github.com/rustopian/compare-programs.git#4ca6e8a601e82bc01f3c18935c94b241eca29f43"
 dependencies = [
  "bincode",
  "chrono",
  "compare-programs-macro",
+ "libc",
  "mollusk-svm",
  "once_cell",
  "solana-account",
@@ -594,7 +595,7 @@ dependencies = [
 [[package]]
 name = "compare-programs-macro"
 version = "0.1.0"
-source = "git+https://github.com/rustopian/compare-programs.git#90112e0a989a46c7ee5c68b98221739a60aa5bda"
+source = "git+https://github.com/rustopian/compare-programs.git#4ca6e8a601e82bc01f3c18935c94b241eca29f43"
 dependencies = [
  "proc-macro2",
  "quote",
