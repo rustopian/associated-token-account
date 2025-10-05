@@ -1,4 +1,3 @@
-use bincode;
 use chrono::{Datelike, Timelike, Utc};
 pub use compare_programs_macro::compare_programs;
 pub use compare_programs_macro::instrument;
@@ -25,7 +24,6 @@ struct PendingRun {
 
 #[derive(Clone)]
 struct ComparisonRecord {
-    suite: String,
     test: String,
     instruction: String,
     context: Option<String>,
@@ -184,7 +182,7 @@ where
     if fs::create_dir_all(&path).is_err() {
         return;
     }
-    let prefix = RUN_PREFIX.get_or_init(|| get_or_make_session_prefix());
+    let prefix = RUN_PREFIX.get_or_init(get_or_make_session_prefix);
     path.push(format!("{}-{}", prefix, filename));
     if let Ok(_g) = WRITE_LOCK.get_or_init(|| Mutex::new(())).lock() {
         if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
@@ -197,7 +195,7 @@ where
 fn current_run_prefix() -> String {
     let git_hash = std::env::var("GIT_COMMIT")
         .ok()
-        .or_else(|| git_rev_parse_head())
+        .or_else(git_rev_parse_head)
         .unwrap_or_else(|| "no-git".to_string());
     let ts = Utc::now();
     let short = format!(
@@ -448,7 +446,10 @@ pub fn seed() -> u64 {
 }
 
 fn finalize_comparison(
+    key: &str,
     instruction_name: &str,
+    context: Option<String>,
+    instruction_detail: Option<String>,
     cu_used: Option<u64>,
     result_str: Option<&str>,
     account_snapshot: BTreeMap<Pubkey, Account>,
@@ -460,7 +461,7 @@ fn finalize_comparison(
         0 => {
             TLS_PENDING.with(|p| {
                 p.borrow_mut().insert(
-                    (test_name.clone(), instruction_name.to_string()),
+                    (test_name.clone(), key.to_string()),
                     PendingRun {
                         compute_units: cu_used,
                         result: result_str.map(|s| s.to_string()),
@@ -472,9 +473,7 @@ fn finalize_comparison(
         _ => {
             let (mut compute_units_a, mut result_a, mut snapshot_a) = (None, None, BTreeMap::new());
             TLS_PENDING.with(|p| {
-                if let Some(pending) = p
-                    .borrow_mut()
-                    .remove(&(test_name.clone(), instruction_name.to_string()))
+                if let Some(pending) = p.borrow_mut().remove(&(test_name.clone(), key.to_string()))
                 {
                     compute_units_a = pending.compute_units;
                     result_a = pending.result;
@@ -487,11 +486,10 @@ fn finalize_comparison(
                 None
             };
             let record = ComparisonRecord {
-                suite: TLS_SUITE_NAME.with(|n| n.borrow().clone()),
                 test: test_name,
                 instruction: instruction_name.to_string(),
-                context: None,
-                instruction_detail: None,
+                context,
+                instruction_detail,
                 compute_units_a,
                 compute_units_b: cu_used,
                 byte_equal,
@@ -503,34 +501,6 @@ fn finalize_comparison(
             emit_report_event(ReportEvent::Comparison { record });
         }
     }
-}
-
-pub fn log_cu_and_byte_comparison_ctx(
-    ctx: &MolluskContext<std::collections::HashMap<Pubkey, Account>>,
-    instruction_name: &str,
-    cu_used: Option<u64>,
-    result_str: Option<&str>,
-) {
-    let store = ctx.account_store.borrow();
-    let mut account_snapshot: BTreeMap<Pubkey, Account> = BTreeMap::new();
-    for (pubkey, account) in store.iter() {
-        account_snapshot.insert(*pubkey, account.clone());
-    }
-    finalize_comparison(instruction_name, cu_used, result_str, account_snapshot);
-}
-
-pub fn log_cu_and_byte_comparison_snapshot(
-    instruction_name: &str,
-    cu_used: Option<u64>,
-    result_str: Option<&str>,
-    account_snapshot: &BTreeMap<Pubkey, Account>,
-) {
-    finalize_comparison(
-        instruction_name,
-        cu_used,
-        result_str,
-        account_snapshot.clone(),
-    );
 }
 
 pub fn log_instruction_logs(instruction: &str, logs: &[String]) {
@@ -581,67 +551,22 @@ pub fn default_observer(
     } else {
         "ERR"
     };
-    // Already filtered
-    // parsed_instr already determined via decoders
+
     let ctx_ptr = TLS_CTX_PTR.with(|c| *c.borrow());
     if !ctx_ptr.is_null() {
         let ctx_ref = unsafe { &*ctx_ptr };
-        // Thread parsed instruction as the instruction field and use harness step label as context
         let store = ctx_ref.account_store.borrow();
-        let mut account_snapshot: BTreeMap<Pubkey, Account> = BTreeMap::new();
-        for (pubkey, account) in store.iter() {
-            account_snapshot.insert(*pubkey, account.clone());
-        }
-        let test_name = TLS_TEST_NAME.with(|n| n.borrow().clone());
-        let idx = TLS_INDEX.with(|c| c.get());
-        match idx {
-            0 => {
-                TLS_PENDING.with(|p| {
-                    p.borrow_mut().insert(
-                        (test_name.clone(), context_label.clone()),
-                        PendingRun {
-                            compute_units: Some(res.compute_units_consumed),
-                            result: Some(result_str.to_string()),
-                            snapshot: account_snapshot,
-                        },
-                    );
-                });
-            }
-            _ => {
-                let (mut compute_units_a, mut result_a, mut snapshot_a) =
-                    (None, None, BTreeMap::new());
-                TLS_PENDING.with(|p| {
-                    if let Some(pending) = p
-                        .borrow_mut()
-                        .remove(&(test_name.clone(), context_label.clone()))
-                    {
-                        compute_units_a = pending.compute_units;
-                        result_a = pending.result;
-                        snapshot_a = pending.snapshot;
-                    }
-                });
-                let byte_equal = if !snapshot_a.is_empty() {
-                    Some(snapshot_a == account_snapshot)
-                } else {
-                    None
-                };
-                let record = ComparisonRecord {
-                    suite: TLS_SUITE_NAME.with(|n| n.borrow().clone()),
-                    test: test_name,
-                    instruction: parsed_instr,
-                    context: Some(context_label),
-                    instruction_detail,
-                    compute_units_a,
-                    compute_units_b: Some(res.compute_units_consumed),
-                    byte_equal,
-                    result_a,
-                    result_b: Some(result_str.to_string()),
-                    accounts_a: snapshot_a,
-                    accounts_b: account_snapshot,
-                };
-                emit_report_event(ReportEvent::Comparison { record });
-            }
-        }
+        let account_snapshot: BTreeMap<Pubkey, Account> =
+            store.iter().map(|(k, v)| (*k, v.clone())).collect();
+        finalize_comparison(
+            &context_label,
+            &parsed_instr,
+            Some(context_label.clone()),
+            instruction_detail,
+            Some(res.compute_units_consumed),
+            Some(result_str),
+            account_snapshot,
+        );
     }
 }
 
