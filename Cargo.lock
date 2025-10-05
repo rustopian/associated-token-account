@@ -572,14 +572,13 @@ dependencies = [
 [[package]]
 name = "compare-programs"
 version = "0.1.0"
+source = "git+https://github.com/rustopian/compare-programs.git#90112e0a989a46c7ee5c68b98221739a60aa5bda"
 dependencies = [
  "bincode",
  "chrono",
  "compare-programs-macro",
  "mollusk-svm",
  "once_cell",
- "serde",
- "serde_json",
  "solana-account",
  "solana-address",
  "solana-instruction",
@@ -595,6 +594,7 @@ dependencies = [
 [[package]]
 name = "compare-programs-macro"
 version = "0.1.0"
+source = "git+https://github.com/rustopian/compare-programs.git#90112e0a989a46c7ee5c68b98221739a60aa5bda"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3278,6 +3278,7 @@ dependencies = [
  "ata-mollusk-harness",
  "borsh",
  "compare-programs",
+ "compare-programs-macro",
  "mollusk-svm",
  "num-derive",
  "num-traits",
