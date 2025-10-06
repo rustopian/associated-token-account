@@ -1,3 +1,5 @@
+mod common;
+
 use compare_programs::compare_programs;
 use {
     ata_mollusk_harness::AtaTestHarness,

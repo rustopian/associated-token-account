@@ -572,14 +572,16 @@ dependencies = [
 [[package]]
 name = "compare-programs"
 version = "0.1.0"
-source = "git+https://github.com/rustopian/compare-programs.git#4ca6e8a601e82bc01f3c18935c94b241eca29f43"
+source = "git+https://github.com/rustopian/compare-programs.git#05691a5412135bdf0e4d72b9002d09b00d79d4e5"
 dependencies = [
  "bincode",
+ "borsh",
  "chrono",
  "compare-programs-macro",
  "libc",
  "mollusk-svm",
  "once_cell",
+ "serde",
  "solana-account",
  "solana-address",
  "solana-instruction",
@@ -587,7 +589,6 @@ dependencies = [
  "solana-program-runtime",
  "solana-pubkey",
  "solana-system-interface",
- "spl-associated-token-account-interface 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "spl-token-2022-interface",
  "spl-token-interface",
 ]
@@ -595,7 +596,7 @@ dependencies = [
 [[package]]
 name = "compare-programs-macro"
 version = "0.1.0"
-source = "git+https://github.com/rustopian/compare-programs.git#4ca6e8a601e82bc01f3c18935c94b241eca29f43"
+source = "git+https://github.com/rustopian/compare-programs.git#05691a5412135bdf0e4d72b9002d09b00d79d4e5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -666,6 +667,16 @@ checksum = "b584a330336237c1eecd3e94266efb216c56ed91225d634cb2991c5f3fd1aeab"
 dependencies = [
  "generic-array",
  "subtle",
+]
+
+[[package]]
+name = "ctor"
+version = "0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32a2785755761f3ddc1492979ce1e48d2c00d09311c39e4466429188f3dd6501"
+dependencies = [
+ "quote",
+ "syn 2.0.106",
 ]
 
 [[package]]
@@ -3280,6 +3291,7 @@ dependencies = [
  "borsh",
  "compare-programs",
  "compare-programs-macro",
+ "ctor",
  "mollusk-svm",
  "num-derive",
  "num-traits",
