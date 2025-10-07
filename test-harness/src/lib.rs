@@ -12,30 +12,8 @@ use {
     spl_associated_token_account_interface::address::get_associated_token_address_with_program_id,
     spl_token_2022_interface::{extension::ExtensionType, state::Account as Token2022Account},
     spl_token_interface::{state::Account as TokenAccount, state::AccountState, state::Mint},
-    std::{cell::Cell, cell::RefCell, collections::HashMap, rc::Rc, vec::Vec},
+    std::{cell::RefCell, collections::HashMap, rc::Rc, vec::Vec},
 };
-
-#[derive(Clone)]
-struct XorShift64 {
-    state: u64,
-}
-
-impl XorShift64 {
-    fn seeded(seed: u64) -> Self {
-        // Avoid zero state
-        let state = if seed == 0 { 0x9e3779b97f4a7c15 } else { seed };
-        Self { state }
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        let mut x = self.state;
-        x ^= x << 13;
-        x ^= x >> 7;
-        x ^= x << 17;
-        self.state = x;
-        x
-    }
-}
 
 /// Setup mollusk with local ATA and token programs
 #[compare_programs::instrument]
@@ -105,28 +83,9 @@ pub struct AtaTestHarness {
     pub mint: Option<Pubkey>,
     pub mint_authority: Option<Pubkey>,
     pub ata_address: Option<Pubkey>,
-    rng: Option<XorShift64>,
-    step_counter: Cell<usize>,
 }
 
 impl AtaTestHarness {
-    fn next_pubkey(&mut self) -> Pubkey {
-        if let Some(rng) = &mut self.rng {
-            let mut bytes = [0u8; 32];
-            for chunk in bytes.chunks_mut(8) {
-                let v = rng.next_u64();
-                chunk.copy_from_slice(&v.to_le_bytes());
-            }
-            Pubkey::new_from_array(bytes)
-        } else {
-            Pubkey::new_unique()
-        }
-    }
-
-    pub fn new_address(&mut self) -> Pubkey {
-        self.next_pubkey()
-    }
-
     /// Ensure an account exists in the context store with the given lamports.
     /// If the account does not exist, it will be created as a system account.
     /// However, this can be called on a non-system account (to be used for
@@ -150,6 +109,7 @@ impl AtaTestHarness {
     }
 
     /// Internal: create the mint account owned by the token program with given space
+    #[compare_programs::instrument]
     fn create_mint_account(&mut self, mint_account: Pubkey, space: usize, mint_program_id: Pubkey) {
         let mint_rent = Rent::default().minimum_balance(space);
         let create_mint_ix = solana_system_interface::instruction::create_account(
@@ -160,64 +120,8 @@ impl AtaTestHarness {
             &mint_program_id,
         );
 
-        self.process_and_validate_with_observer(
-            "create_mint_account",
-            &create_mint_ix,
-            &[Check::success()],
-        );
-    }
-
-    fn next_step_name(&self, label: &str) -> String {
-        let next = self.step_counter.get().wrapping_add(1);
-        self.step_counter.set(next);
-        format!("harness-{:03} {}", next, label)
-    }
-
-    #[compare_programs::instrument]
-    fn process_and_validate_with_observer(
-        &self,
-        label: &str,
-        instruction: &Instruction,
-        checks: &[Check],
-    ) {
-        let name = self.next_step_name(label);
-        compare_programs::set_current_ctx_ptr(&self.ctx);
         self.ctx
-            .process_and_validate_instruction(instruction, checks);
-    }
-
-    /// Create a new test harness with the specified token program, ATA program filename, and deterministic seed
-    pub fn new_with_program_and_seed(
-        token_program_id: &Pubkey,
-        ata_program_filename: &str,
-        seed: u64,
-    ) -> Self {
-        let mollusk = setup_mollusk_with_programs(token_program_id, ata_program_filename);
-        let mut rng = XorShift64::seeded(seed);
-        // Derive payer deterministically from RNG
-        let payer = {
-            let mut bytes = [0u8; 32];
-            for chunk in bytes.chunks_mut(8) {
-                let v = rng.next_u64();
-                chunk.copy_from_slice(&v.to_le_bytes());
-            }
-            Pubkey::new_from_array(bytes)
-        };
-        let ctx = mollusk.with_context(HashMap::new());
-
-        let harness = Self {
-            ctx,
-            token_program_id: *token_program_id,
-            payer,
-            wallet: None,
-            mint: None,
-            mint_authority: None,
-            ata_address: None,
-            rng: Some(rng),
-            step_counter: Cell::new(0),
-        };
-        harness.ensure_account_exists_with_lamports(payer, 10_000_000_000);
-        harness
+            .process_and_validate_instruction(&create_mint_ix, &[Check::success()]);
     }
 
     /// Create a new test harness with the specified token program
@@ -235,32 +139,34 @@ impl AtaTestHarness {
             mint: None,
             mint_authority: None,
             ata_address: None,
-            rng: None,
-            step_counter: Cell::new(0),
         };
         harness.ensure_account_exists_with_lamports(payer, 10_000_000_000);
         harness
     }
 
     /// Add a wallet with the specified lamports
+    #[compare_programs::instrument]
     pub fn with_wallet(mut self, lamports: u64) -> Self {
-        let wallet = self.next_pubkey();
+        let wallet = Pubkey::new_unique();
         self.ensure_accounts_with_lamports(&[(wallet, lamports)]);
         self.wallet = Some(wallet);
         self
     }
 
     /// Add an additional wallet (e.g. for sender/receiver scenarios) - returns harness and the new wallet
-    pub fn with_additional_wallet(mut self, lamports: u64) -> (Self, Pubkey) {
-        let additional_wallet = self.next_pubkey();
+
+    #[compare_programs::instrument]
+    pub fn with_additional_wallet(self, lamports: u64) -> (Self, Pubkey) {
+        let additional_wallet = Pubkey::new_unique();
         self.ensure_accounts_with_lamports(&[(additional_wallet, lamports)]);
         (self, additional_wallet)
     }
 
     /// Create and initialize a mint with the specified decimals
+    #[compare_programs::instrument]
     pub fn with_mint(mut self, decimals: u8) -> Self {
-        let mint_authority = self.next_pubkey();
-        let mint_account = self.next_pubkey();
+        let mint_authority = Pubkey::new_unique();
+        let mint_account = Pubkey::new_unique();
 
         self.create_mint_account(mint_account, Mint::LEN, self.token_program_id);
 
@@ -270,13 +176,14 @@ impl AtaTestHarness {
     }
 
     /// Create and initialize a Token-2022 mint with specific extensions
+    #[compare_programs::instrument]
     pub fn with_mint_with_extensions(mut self, extensions: &[ExtensionType]) -> Self {
         if self.token_program_id != spl_token_2022_interface::id() {
             panic!("with_mint_with_extensions() can only be used with Token-2022 program");
         }
 
-        let mint_authority = self.next_pubkey();
-        let mint_account = self.next_pubkey();
+        let mint_authority = Pubkey::new_unique();
+        let mint_account = Pubkey::new_unique();
 
         // Calculate space needed for extensions
         let space =
@@ -293,6 +200,7 @@ impl AtaTestHarness {
     }
 
     /// Initialize transfer fee extension on the current mint (requires Token-2022 mint with `TransferFeeConfig` extension)
+    #[compare_programs::instrument]
     pub fn initialize_transfer_fee(self, transfer_fee_basis_points: u16, maximum_fee: u64) -> Self {
         let mint = self.mint.expect("Mint must be set");
         let mint_authority = self.mint_authority.expect("Mint authority must be set");
@@ -307,15 +215,13 @@ impl AtaTestHarness {
         )
         .expect("Failed to create initialize_transfer_fee_config instruction");
 
-        self.process_and_validate_with_observer(
-            "initialize_transfer_fee",
-            &init_fee_ix,
-            &[Check::success()],
-        );
+        self.ctx
+            .process_and_validate_instruction(&init_fee_ix, &[Check::success()]);
         self
     }
 
     /// Initialize mint (must be called after extensions are initialized)
+    #[compare_programs::instrument]
     pub fn initialize_mint(self, decimals: u8) -> Self {
         let mint = self.mint.expect("Mint must be set");
         let mint_authority = self.mint_authority.expect("Mint authority must be set");
@@ -329,15 +235,13 @@ impl AtaTestHarness {
         )
         .expect("Failed to create initialize_mint instruction");
 
-        self.process_and_validate_with_observer(
-            "initialize_mint",
-            &init_mint_ix,
-            &[Check::success()],
-        );
+        self.ctx
+            .process_and_validate_instruction(&init_mint_ix, &[Check::success()]);
         self
     }
 
     /// Create an ATA for the wallet and mint (requires wallet and mint to be set)
+    #[compare_programs::instrument]
     pub fn with_ata(mut self) -> Self {
         let wallet = self.wallet.expect("Wallet must be set before creating ATA");
         let mint = self.mint.expect("Mint must be set before creating ATA");
@@ -355,7 +259,8 @@ impl AtaTestHarness {
             CreateAtaInstructionType::default(),
         );
 
-        self.process_and_validate_with_observer("create_ata", &instruction, &[Check::success()]);
+        self.ctx
+            .process_and_validate_instruction(&instruction, &[Check::success()]);
 
         self.ata_address = Some(ata_address);
         self
@@ -378,6 +283,7 @@ impl AtaTestHarness {
     }
 
     /// Mint tokens to a specific address
+    #[compare_programs::instrument]
     pub fn mint_tokens_to(&mut self, destination: Pubkey, amount: u64) {
         let mint = self.mint.expect("Mint must be set");
         let mint_authority = self
@@ -395,7 +301,8 @@ impl AtaTestHarness {
         )
         .unwrap();
 
-        self.process_and_validate_with_observer("mint_to", &mint_to_ix, &[Check::success()]);
+        self.ctx
+            .process_and_validate_instruction(&mint_to_ix, &[Check::success()]);
     }
 
     /// Build a create ATA instruction for the current wallet and mint
@@ -423,6 +330,7 @@ impl AtaTestHarness {
 
     /// Create an ATA for any owner. Ensure the owner exists as a system account,
     /// creating it with the given lamports if it does not exist.
+    #[compare_programs::instrument]
     pub fn create_ata_for_owner(&mut self, owner: Pubkey, owner_lamports: u64) -> Pubkey {
         let mint = self.mint.expect("Mint must be set");
         self.ensure_accounts_with_lamports(&[(owner, owner_lamports)]);
@@ -440,11 +348,8 @@ impl AtaTestHarness {
             CreateAtaInstructionType::default(),
         );
 
-        self.process_and_validate_with_observer(
-            "create_ata_for_owner",
-            &instruction,
-            &[Check::success()],
-        );
+        self.ctx
+            .process_and_validate_instruction(&instruction, &[Check::success()]);
 
         ata_address
     }
@@ -471,6 +376,7 @@ impl AtaTestHarness {
     }
 
     /// Build and execute a create ATA instruction
+    #[compare_programs::instrument]
     pub fn create_ata(&mut self, instruction_type: CreateAtaInstructionType) -> Pubkey {
         let wallet = self.wallet.expect("Wallet must be set");
         let mint = self.mint.expect("Mint must be set");
@@ -499,8 +405,7 @@ impl AtaTestHarness {
             token_account_rent_exempt_balance()
         };
 
-        self.process_and_validate_with_observer(
-            "create_ata",
+        self.ctx.process_and_validate_instruction(
             &instruction,
             &[
                 Check::success(),
@@ -534,6 +439,7 @@ impl AtaTestHarness {
     }
 
     /// Execute an instruction with a modified account address (for testing non-ATA addresses)
+    #[compare_programs::instrument]
     pub fn execute_with_wrong_account_address(
         &self,
         wrong_account: Pubkey,
@@ -561,14 +467,12 @@ impl AtaTestHarness {
         // Replace the ATA address with the wrong account address
         instruction.accounts[1] = AccountMeta::new(wrong_account, false);
 
-        self.process_and_validate_with_observer(
-            "execute_with_wrong_account_address",
-            &instruction,
-            &[Check::err(expected_error)],
-        );
+        self.ctx
+            .process_and_validate_instruction(&instruction, &[Check::err(expected_error)]);
     }
 
     /// Create ATA instruction with custom modifications (for special cases like legacy empty data)
+    #[compare_programs::instrument]
     pub fn create_and_check_ata_with_custom_instruction<F>(
         &mut self,
         instruction_type: CreateAtaInstructionType,
@@ -607,8 +511,7 @@ impl AtaTestHarness {
             token_account_rent_exempt_balance()
         };
 
-        self.process_and_validate_with_observer(
-            "custom_create_ata",
+        self.ctx.process_and_validate_instruction(
             &instruction,
             &[
                 Check::success(),
