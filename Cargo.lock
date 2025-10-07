@@ -572,7 +572,7 @@ dependencies = [
 [[package]]
 name = "compare-programs"
 version = "0.1.0"
-source = "git+https://github.com/rustopian/compare-programs.git#2a958bb684b413fe4528a7fbc437b20b9b4aa396"
+source = "git+https://github.com/rustopian/compare-programs.git#752e2053d2420b37e5862b6822d0322bd78176f8"
 dependencies = [
  "bincode",
  "blake3",
@@ -598,7 +598,7 @@ dependencies = [
 [[package]]
 name = "compare-programs-macro"
 version = "0.1.0"
-source = "git+https://github.com/rustopian/compare-programs.git#2a958bb684b413fe4528a7fbc437b20b9b4aa396"
+source = "git+https://github.com/rustopian/compare-programs.git#752e2053d2420b37e5862b6822d0322bd78176f8"
 dependencies = [
  "proc-macro2",
  "quote",
