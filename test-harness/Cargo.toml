@@ -10,8 +10,8 @@ crate-type = ["lib"]
 
 [dependencies]
 compare-programs = { version = "0.1.0", git = "https://github.com/rustopian/compare-programs.git" }
-mollusk-svm = { version = "0.6.3", git = "https://github.com/rustopian/mollusk.git", branch = "process-instruction-with-observer" }
-mollusk-svm-programs-token = { version = "0.6.3", git = "https://github.com/rustopian/mollusk.git", branch = "process-instruction-with-observer" }
+mollusk-svm = { version = "0.6.3", features = ["invocation-inspect-callback"] }
+mollusk-svm-programs-token = { version = "0.6.3" }
 solana-account = "3.0"
 solana-instruction = "3.0"
 solana-keypair = "3.0"

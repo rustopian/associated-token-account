@@ -17,7 +17,7 @@ const TEST_MINT_AMOUNT: u64 = 100;
 
 #[compare_programs::instrument]
 fn test_recover_nested_same_mint(program_id: &Pubkey) {
-    let mut harness = AtaTestHarness::new_with_seed(program_id, compare_programs::seed())
+    let mut harness = AtaTestHarness::new(program_id)
         .with_wallet(1_000_000)
         .with_mint(0)
         .with_ata();
@@ -65,7 +65,7 @@ fn test_recover_nested_same_mint(program_id: &Pubkey) {
 
 #[compare_programs::instrument]
 fn test_fail_missing_wallet_signature(token_program_id: &Pubkey) {
-    let mut harness = AtaTestHarness::new_with_seed(token_program_id, compare_programs::seed())
+    let mut harness = AtaTestHarness::new(token_program_id)
         .with_wallet(1_000_000)
         .with_mint(0)
         .with_ata();
@@ -86,7 +86,7 @@ fn test_fail_missing_wallet_signature(token_program_id: &Pubkey) {
 
 #[compare_programs::instrument]
 fn test_fail_wrong_signer(token_program_id: &Pubkey) {
-    let mut harness = AtaTestHarness::new_with_seed(token_program_id, compare_programs::seed())
+    let mut harness = AtaTestHarness::new(token_program_id)
         .with_wallet(1_000_000)
         .with_mint(0)
         .with_ata();
@@ -110,7 +110,7 @@ fn test_fail_wrong_signer(token_program_id: &Pubkey) {
 
 #[compare_programs::instrument]
 fn test_fail_not_nested(token_program_id: &Pubkey) {
-    let mut harness = AtaTestHarness::new_with_seed(token_program_id, compare_programs::seed())
+    let mut harness = AtaTestHarness::new(token_program_id)
         .with_wallet(1_000_000)
         .with_mint(0)
         .with_ata();
@@ -130,7 +130,7 @@ fn test_fail_not_nested(token_program_id: &Pubkey) {
 
 #[compare_programs::instrument]
 fn test_fail_wrong_address_derivation_owner(token_program_id: &Pubkey) {
-    let mut harness = AtaTestHarness::new_with_seed(token_program_id, compare_programs::seed())
+    let mut harness = AtaTestHarness::new(token_program_id)
         .with_wallet(1_000_000)
         .with_mint(0)
         .with_ata();
@@ -164,7 +164,7 @@ fn success_same_mint() {
 
 #[compare_programs::instrument]
 fn test_recover_nested_different_mints(program_id: &Pubkey) {
-    let harness = AtaTestHarness::new_with_seed(program_id, compare_programs::seed())
+    let harness = AtaTestHarness::new(program_id)
         .with_wallet(1_000_000)
         .with_mint(0)
         .with_ata();

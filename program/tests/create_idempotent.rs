@@ -13,8 +13,7 @@ use {
 #[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn success_account_exists() {
     let mut harness =
-        AtaTestHarness::new_with_seed(&spl_token_2022_interface::id(), compare_programs::seed())
-            .with_wallet_and_mint(1_000_000, 6);
+        AtaTestHarness::new(&spl_token_2022_interface::id()).with_wallet_and_mint(1_000_000, 6);
     // CreateIdempotent will create the ATA if it doesn't exist
     let ata_address = harness.create_ata(CreateAtaInstructionType::CreateIdempotent { bump: None });
     let associated_account = harness

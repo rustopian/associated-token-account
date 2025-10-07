@@ -17,16 +17,14 @@ use {
 #[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn test_associated_token_address() {
     let mut harness =
-        AtaTestHarness::new_with_seed(&spl_token_2022_interface::id(), compare_programs::seed())
-            .with_wallet_and_mint(1_000_000, 6);
+        AtaTestHarness::new(&spl_token_2022_interface::id()).with_wallet_and_mint(1_000_000, 6);
     harness.create_ata(CreateAtaInstructionType::default());
 }
 
 #[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn test_create_with_fewer_lamports() {
     let harness =
-        AtaTestHarness::new_with_seed(&spl_token_2022_interface::id(), compare_programs::seed())
-            .with_wallet_and_mint(1_000_000, 6);
+        AtaTestHarness::new(&spl_token_2022_interface::id()).with_wallet_and_mint(1_000_000, 6);
 
     let wallet = harness.wallet.unwrap();
     let mint = harness.mint.unwrap();
@@ -64,8 +62,7 @@ fn test_create_with_fewer_lamports() {
 #[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn test_create_with_excess_lamports() {
     let harness =
-        AtaTestHarness::new_with_seed(&spl_token_2022_interface::id(), compare_programs::seed())
-            .with_wallet_and_mint(1_000_000, 6);
+        AtaTestHarness::new(&spl_token_2022_interface::id()).with_wallet_and_mint(1_000_000, 6);
 
     let wallet = harness.wallet.unwrap();
     let mint = harness.mint.unwrap();
@@ -140,8 +137,7 @@ fn test_create_account_mismatch() {
 #[compare_programs(programs = ["spl_associated_token_account","spl_associated_token_account"], filter_program_ids = ["spl_associated_token_account_interface::program::id()"])]
 fn test_create_associated_token_account_using_legacy_implicit_instruction() {
     let mut harness =
-        AtaTestHarness::new_with_seed(&spl_token_2022_interface::id(), compare_programs::seed())
-            .with_wallet_and_mint(1_000_000, 6);
+        AtaTestHarness::new(&spl_token_2022_interface::id()).with_wallet_and_mint(1_000_000, 6);
 
     harness.create_and_check_ata_with_custom_instruction(
         CreateAtaInstructionType::default(),

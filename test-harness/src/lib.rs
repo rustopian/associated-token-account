@@ -38,6 +38,7 @@ impl XorShift64 {
 }
 
 /// Setup mollusk with local ATA and token programs
+#[compare_programs::instrument]
 pub fn setup_mollusk_with_programs(
     token_program_id: &Pubkey,
     ata_program_filename: &str,
@@ -172,6 +173,7 @@ impl AtaTestHarness {
         format!("harness-{:03} {}", next, label)
     }
 
+    #[compare_programs::instrument]
     fn process_and_validate_with_observer(
         &self,
         label: &str,
@@ -180,14 +182,8 @@ impl AtaTestHarness {
     ) {
         let name = self.next_step_name(label);
         compare_programs::set_current_ctx_ptr(&self.ctx);
-        self.ctx.process_and_validate_instruction_with_observer(
-            instruction,
-            checks,
-            move |ix, res, invoke_ctx| {
-                compare_programs::set_current_instruction_name(&name);
-                compare_programs::default_observer(ix, res, invoke_ctx);
-            },
-        );
+        self.ctx
+            .process_and_validate_instruction(instruction, checks);
     }
 
     /// Create a new test harness with the specified token program, ATA program filename, and deterministic seed
@@ -225,6 +221,7 @@ impl AtaTestHarness {
     }
 
     /// Create a new test harness with the specified token program
+    #[compare_programs::instrument]
     pub fn new(token_program_id: &Pubkey) -> Self {
         let mollusk = setup_mollusk_with_programs(token_program_id, "spl_associated_token_account");
         let payer = Pubkey::new_unique();
@@ -243,11 +240,6 @@ impl AtaTestHarness {
         };
         harness.ensure_account_exists_with_lamports(payer, 10_000_000_000);
         harness
-    }
-
-    /// Create a new test harness using an explicit seed for deterministic key material
-    pub fn new_with_seed(token_program_id: &Pubkey, seed: u64) -> Self {
-        Self::new_with_program_and_seed(token_program_id, "spl_associated_token_account", seed)
     }
 
     /// Add a wallet with the specified lamports

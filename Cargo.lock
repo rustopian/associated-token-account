@@ -572,7 +572,7 @@ dependencies = [
 [[package]]
 name = "compare-programs"
 version = "0.1.0"
-source = "git+https://github.com/rustopian/compare-programs.git#05691a5412135bdf0e4d72b9002d09b00d79d4e5"
+source = "git+https://github.com/rustopian/compare-programs.git#4cfabdde8d61b766b350ab26fb727c029580021c"
 dependencies = [
  "bincode",
  "borsh",
@@ -589,6 +589,7 @@ dependencies = [
  "solana-program-runtime",
  "solana-pubkey",
  "solana-system-interface",
+ "solana-transaction-context",
  "spl-token-2022-interface",
  "spl-token-interface",
 ]
@@ -596,7 +597,7 @@ dependencies = [
 [[package]]
 name = "compare-programs-macro"
 version = "0.1.0"
-source = "git+https://github.com/rustopian/compare-programs.git#05691a5412135bdf0e4d72b9002d09b00d79d4e5"
+source = "git+https://github.com/rustopian/compare-programs.git#4cfabdde8d61b766b350ab26fb727c029580021c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1373,7 +1374,8 @@ dependencies = [
 [[package]]
 name = "mollusk-svm"
 version = "0.6.3"
-source = "git+https://github.com/rustopian/mollusk.git?branch=process-instruction-with-observer#5a6435049321f13f7f06cbbd1514919537f00163"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "143f7c08bb10cb54e37905fb177b8a38a1d246b4849cea2b1fddfeb78bb56387"
 dependencies = [
  "agave-feature-set",
  "agave-precompiles",
@@ -1414,7 +1416,8 @@ dependencies = [
 [[package]]
 name = "mollusk-svm-error"
 version = "0.6.3"
-source = "git+https://github.com/rustopian/mollusk.git?branch=process-instruction-with-observer#5a6435049321f13f7f06cbbd1514919537f00163"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b68aed3d1823e4be9c826d5f5a081dd1616fc62537aab86aa909da9128b6ce6"
 dependencies = [
  "solana-pubkey",
  "thiserror 1.0.69",
@@ -1423,7 +1426,8 @@ dependencies = [
 [[package]]
 name = "mollusk-svm-keys"
 version = "0.6.3"
-source = "git+https://github.com/rustopian/mollusk.git?branch=process-instruction-with-observer#5a6435049321f13f7f06cbbd1514919537f00163"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d99668408c6a0e3bf011bdc7d0f5698488e4633fb940643de88be5d8b3af946"
 dependencies = [
  "mollusk-svm-error",
  "solana-account",
@@ -1435,7 +1439,8 @@ dependencies = [
 [[package]]
 name = "mollusk-svm-programs-token"
 version = "0.6.3"
-source = "git+https://github.com/rustopian/mollusk.git?branch=process-instruction-with-observer#5a6435049321f13f7f06cbbd1514919537f00163"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc02bba5b53c21724950808fbeeaeaa1eacf6f2c4fe7d5842d407e1f1e1eff6d"
 dependencies = [
  "mollusk-svm",
  "solana-account",
@@ -1449,7 +1454,8 @@ dependencies = [
 [[package]]
 name = "mollusk-svm-result"
 version = "0.6.3"
-source = "git+https://github.com/rustopian/mollusk.git?branch=process-instruction-with-observer#5a6435049321f13f7f06cbbd1514919537f00163"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "417b6ca34b134ef036bf3d44df5320c052a39020d44c19d2059b1d5999501115"
 dependencies = [
  "solana-account",
  "solana-instruction",
